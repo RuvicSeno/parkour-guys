@@ -1,12 +1,47 @@
 [gd_scene format=3 uid="uid://ba6qorndh0drw"]
 
-[ext_resource type="Script" uid="uid://ch2wr66fbs0xc" path="res://Scripts/world.gd" id="1_c6gwx"]
+[ext_resource type="Script" uid="uid://ch2wr66fbs0xc" path="res://Scripts/world.gd" id="1_5cjrv"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_yn4gk"]
+size = Vector3(50, 1, 50)
+
+[sub_resource type="BoxMesh" id="BoxMesh_v1sg8"]
+size = Vector3(50, 1, 50)
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1wvas"]
+sky_top_color = Color(0.67530525, 0.83038163, 0.9645789, 1)
+sky_horizon_color = Color(0.77228755, 0.8439191, 0.8693728, 1)
+sky_energy_multiplier = 1.1
+
+[sub_resource type="Sky" id="Sky_v1sg8"]
+sky_material = SubResource("ProceduralSkyMaterial_1wvas")
+
+[sub_resource type="Environment" id="Environment_yn4gk"]
+background_mode = 2
+sky = SubResource("Sky_v1sg8")
 
 [node name="World" type="Node3D" unique_id=842056292]
-script = ExtResource("1_c6gwx")
+script = ExtResource("1_5cjrv")
 
 [node name="Players" type="Node3D" parent="." unique_id=668059354]
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=115931671]
-_spawnable_scenes = PackedStringArray("uid://3ustyunqnite")
+_spawnable_scenes = PackedStringArray("res://Player.tscn")
 spawn_path = NodePath("../Players")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1990571294]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=761826916]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+shape = SubResource("BoxShape3D_yn4gk")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StaticBody3D/CollisionShape3D" unique_id=849504565]
+mesh = SubResource("BoxMesh_v1sg8")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=477166230]
+environment = SubResource("Environment_yn4gk")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=866782531]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.292412, 0)
+light_color = Color(0.99076396, 1, 0.77448916, 1)
+shadow_enabled = true

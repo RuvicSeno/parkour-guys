@@ -3,6 +3,10 @@ extends CharacterBody3D
 const SPEED := 5.0
 const JUMP_VELOCITY := 4.5
 
+func _ready() -> void:
+	if is_multiplayer_authority():
+		$Camera3D.current = true
+
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		return

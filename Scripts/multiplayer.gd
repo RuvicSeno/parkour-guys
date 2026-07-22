@@ -20,16 +20,17 @@ func _on_host_pressed() -> void:
 		return
 	multiplayer.multiplayer_peer = peer
 	print("Hosting on port ", PORT, " as peer id ", multiplayer.get_unique_id())
+	get_tree().change_scene_to_file("res://Scenes/World.tscn")
 
 func _on_join_pressed() -> void:
 	var peer := ENetMultiplayerPeer.new()
-	# Replace with the host's LAN IP address for a real test.
 	var error := peer.create_client("192.168.1.10", PORT)
 	if error != OK:
 		print("Failed to create client: ", error)
 		return
 	multiplayer.multiplayer_peer = peer
 	print("Attempting to connect...")
+	multiplayer.connected_to_server.connect(func(): get_tree().change_scene_to_file("res://Scenes/World.tscn"))
 
 func _on_peer_connected(id: int) -> void:
 	print("Peer connected: ", id)

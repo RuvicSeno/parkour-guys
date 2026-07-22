@@ -1,6 +1,6 @@
 extends Node3D
 
-const PLAYER_SCENE := preload("res://Player.tscn")
+const PLAYER_SCENE := preload("res://Scenes/Player.tscn")
 
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_on_peer_connected)
