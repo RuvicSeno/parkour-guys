@@ -24,7 +24,7 @@ func _on_host_pressed() -> void:
 func _on_join_pressed() -> void:
 	var peer := ENetMultiplayerPeer.new()
 	# Replace with the host's LAN IP address for a real test.
-	var error := peer.create_client("127.0.0.1", PORT)
+	var error := peer.create_client("192.168.1.10", PORT)
 	if error != OK:
 		print("Failed to create client: ", error)
 		return

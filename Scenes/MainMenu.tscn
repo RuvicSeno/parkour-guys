@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cao3kmc1rr4gf"]
 
-[ext_resource type="Script" uid="uid://02uem38it3kk" path="res://multiplayer.gd" id="1_i26rj"]
+[ext_resource type="Script" uid="uid://02uem38it3kk" path="res://Scripts/multiplayer.gd" id="1_i26rj"]
 
 [node name="Control" type="Control" unique_id=323183529]
 layout_mode = 3
