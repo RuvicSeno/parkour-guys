@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://b12la8v1x4751"]
+
+[ext_resource type="Script" uid="uid://cvmp45l07mgt1" path="res://scripts/ui/win_banner.gd" id="1_win"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/Victory.mp3" id="2_sfx"]
+
+[node name="WinBanner" type="CanvasLayer" unique_id=1632535565]
+
+[node name="Control" type="Control" parent="." unique_id=1347516986]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_win")
+
+[node name="PanelContainer" type="PanelContainer" parent="Control" unique_id=1781965113]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -220.0
+offset_top = 40.0
+offset_right = 220.0
+offset_bottom = 140.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer" unique_id=101991904]
+layout_mode = 2
+alignment = 1
+
+[node name="WinLabel" type="Label" parent="Control/PanelContainer/VBoxContainer" unique_id=268322452]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "QUALIFIED!"
+horizontal_alignment = 1
+
+[node name="RankLabel" type="Label" parent="Control/PanelContainer/VBoxContainer" unique_id=74060441]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 20
+text = "1st Place"
+horizontal_alignment = 1
+
+[node name="VictorySFX" type="AudioStreamPlayer" parent="Control"]
+stream = ExtResource("2_sfx")

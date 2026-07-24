@@ -1,6 +1,9 @@
 [gd_scene format=3 uid="uid://3ustyunqnite"]
 
 [ext_resource type="Script" uid="uid://ctsve2o6wqgrt" path="res://scripts/player/player.gd" id="1_wr5hl"]
+[ext_resource type="PackedScene" uid="uid://c7xw6c0ehxct8" path="res://assets/animations/Idle.fbx" id="2_524rm"]
+[ext_resource type="AudioStream" uid="uid://15h8222wpkye" path="res://assets/audio/sfx/Jump.mp3" id="3_jump_sfx"]
+[ext_resource type="AudioStream" uid="uid://duv0dtbqvjnbc" path="res://assets/audio/sfx/Running.mp3" id="4_run_sfx"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_v1sg8"]
 
@@ -16,6 +19,9 @@ properties/1/replication_mode = 1
 properties/2/path = NodePath("CollisionShape3D/Visual:rotation")
 properties/2/spawn = true
 properties/2/replication_mode = 1
+properties/3/path = NodePath(".:anim_state")
+properties/3/spawn = true
+properties/3/replication_mode = 2
 
 [node name="CharacterBody3D" type="CharacterBody3D" unique_id=10664612]
 script = ExtResource("1_wr5hl")
@@ -27,7 +33,24 @@ shape = SubResource("CapsuleShape3D_v1sg8")
 [node name="Visual" type="Node3D" parent="CollisionShape3D" unique_id=1078141856]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="CollisionShape3D/Visual" unique_id=1259821018]
+visible = false
 mesh = SubResource("CapsuleMesh_yn4gk")
+
+[node name="StickMan" parent="CollisionShape3D/Visual" unique_id=1577690233 instance=ExtResource("2_524rm")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+
+[node name="JumpSFX" type="AudioStreamPlayer3D" parent="." unique_id=1541024018]
+stream = ExtResource("3_jump_sfx")
+
+[node name="RunningSFX" type="AudioStreamPlayer3D" parent="." unique_id=1121783406]
+stream = ExtResource("4_run_sfx")
+
+[node name="NameLabel3D" type="Label3D" parent="." unique_id=860112584]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.6, 0)
+billboard = 1
+double_sided = false
+text = "Player"
+outline_size = 8
 
 [node name="CameraPivot" type="Node3D" parent="." unique_id=1705266538]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
@@ -37,5 +60,5 @@ spring_length = 6.0
 
 [node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D" unique_id=541792042]
 
-[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=233103988]
 replication_config = SubResource("SceneReplicationConfig_sync")

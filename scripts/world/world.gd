@@ -53,3 +53,28 @@ func _spawn_player(data: Dictionary) -> Node:
 	player.set_multiplayer_authority(peer_id)
 
 	return player
+
+var finished_players: Array[int] = []
+
+func on_player_reach_finish(peer_id: int) -> void:
+	if not multiplayer.is_server():
+		_notify_server_finish.rpc_id(1, peer_id)
+	else:
+		_process_finish(peer_id)
+
+@rpc("any_peer", "call_local", "reliable")
+func _notify_server_finish(peer_id: int) -> void:
+	if multiplayer.is_server():
+		_process_finish(peer_id)
+
+func _process_finish(peer_id: int) -> void:
+	if not peer_id in finished_players:
+		finished_players.append(peer_id)
+		var rank: int = finished_players.size()
+		_announce_win.rpc(peer_id, rank)
+
+@rpc("authority", "call_local", "reliable")
+func _announce_win(peer_id: int, rank: int) -> void:
+	var win_banner_ui: Node = get_node_or_null("WinBanner/Control")
+	if win_banner_ui and win_banner_ui.has_method("show_win"):
+		win_banner_ui.show_win(peer_id, rank)

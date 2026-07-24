@@ -1,0 +1,49 @@
+[gd_scene format=3 uid="uid://c7m8n21p4ya32"]
+
+[ext_resource type="Script" uid="uid://cfmtprr4emldg" path="res://scripts/world/finish_line.gd" id="1_fin"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_finish"]
+size = Vector3(10, 4, 2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gold"]
+albedo_color = Color(1, 0.84, 0, 1)
+roughness = 0.2
+emission_enabled = true
+emission = Color(1, 0.75, 0, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="BoxMesh" id="BoxMesh_pad"]
+size = Vector3(10, 0.2, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pillar"]
+size = Vector3(0.6, 4, 0.6)
+
+[sub_resource type="BoxMesh" id="BoxMesh_top"]
+size = Vector3(10, 0.6, 0.6)
+
+[node name="FinishLine" type="Area3D" unique_id=264694717]
+script = ExtResource("1_fin")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=958167008]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("BoxShape3D_finish")
+
+[node name="FinishPad" type="MeshInstance3D" parent="." unique_id=1835776911]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+material_override = SubResource("StandardMaterial3D_gold")
+mesh = SubResource("BoxMesh_pad")
+
+[node name="LeftPillar" type="MeshInstance3D" parent="." unique_id=2023333550]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.7, 2, 0)
+material_override = SubResource("StandardMaterial3D_gold")
+mesh = SubResource("BoxMesh_pillar")
+
+[node name="RightPillar" type="MeshInstance3D" parent="." unique_id=1825893650]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.7, 2, 0)
+material_override = SubResource("StandardMaterial3D_gold")
+mesh = SubResource("BoxMesh_pillar")
+
+[node name="TopBeam" type="MeshInstance3D" parent="." unique_id=1983084733]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0)
+material_override = SubResource("StandardMaterial3D_gold")
+mesh = SubResource("BoxMesh_top")

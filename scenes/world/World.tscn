@@ -2,17 +2,39 @@
 
 [ext_resource type="Script" uid="uid://blmkye3q8b88r" path="res://scripts/world/world.gd" id="1_1oml7"]
 [ext_resource type="PackedScene" uid="uid://7tlwe20fji5h" path="res://scenes/ui/DebugConnect.tscn" id="1_5qbjp"]
+[ext_resource type="PackedScene" uid="uid://b8x3r12v8q421" path="res://scenes/world/Checkpoint.tscn" id="2_chk"]
+[ext_resource type="PackedScene" uid="uid://c7m8n21p4x932" path="res://scenes/world/FinishLine.tscn" id="3_fin"]
+[ext_resource type="PackedScene" uid="uid://b12k98v1x4751" path="res://scenes/ui/WinBanner.tscn" id="4_win"]
+[ext_resource type="AudioStream" path="res://assets/audio/music/BackgroundMusic.mp3" id="5_bgm"]
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_yn4gk"]
-size = Vector3(50, 1, 50)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cyan"]
+albedo_color = Color(0.18, 0.67, 0.88, 1)
+roughness = 0.4
 
-[sub_resource type="BoxMesh" id="BoxMesh_v1sg8"]
-size = Vector3(50, 1, 50)
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_yellow"]
+albedo_color = Color(0.98, 0.8, 0.22, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_orange"]
+albedo_color = Color(0.96, 0.48, 0.18, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_purple"]
+albedo_color = Color(0.72, 0.32, 0.84, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_green"]
+albedo_color = Color(0.28, 0.85, 0.42, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dark"]
+albedo_color = Color(0.12, 0.14, 0.2, 1)
+roughness = 0.8
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1wvas"]
-sky_top_color = Color(0.67530525, 0.83038163, 0.9645789, 1)
-sky_horizon_color = Color(0.77228755, 0.8439191, 0.8693728, 1)
-sky_energy_multiplier = 1.1
+sky_top_color = Color(0.45, 0.72, 0.98, 1)
+sky_horizon_color = Color(0.75, 0.85, 0.95, 1)
+sky_energy_multiplier = 1.2
 
 [sub_resource type="Sky" id="Sky_v1sg8"]
 sky_material = SubResource("ProceduralSkyMaterial_1wvas")
@@ -21,36 +43,121 @@ sky_material = SubResource("ProceduralSkyMaterial_1wvas")
 background_mode = 2
 sky = SubResource("Sky_v1sg8")
 
-[node name="TestWorld" type="Node3D" unique_id=842056292]
+[node name="World" type="Node3D" unique_id=842056292]
 script = ExtResource("1_1oml7")
-
-[node name="Floor" type="StaticBody3D" parent="." unique_id=1990571294]
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor" unique_id=761826916]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
-shape = SubResource("BoxShape3D_yn4gk")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor/CollisionShape3D" unique_id=849504565]
-mesh = SubResource("BoxMesh_v1sg8")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=477166230]
 environment = SubResource("Environment_yn4gk")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=866782531]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.292412, 0)
-light_color = Color(0.99076396, 1, 0.77448916, 1)
+transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 25, 0)
+light_color = Color(1, 0.98, 0.9, 1)
 shadow_enabled = true
+
+[node name="ObstacleCourse" type="Node3D" parent="."]
+
+[node name="StartPlatform" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+use_collision = true
+size = Vector3(12, 1, 10)
+material = SubResource("StandardMaterial3D_cyan")
+
+[node name="SteppingStone1" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -9)
+use_collision = true
+size = Vector3(3.5, 1, 3.5)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone2" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 0, -14.5)
+use_collision = true
+size = Vector3(3, 1, 3)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="SteppingStone3" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 0.5, -20)
+use_collision = true
+size = Vector3(3, 1, 3)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone4" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -25.5)
+use_collision = true
+size = Vector3(4, 1, 4)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="NarrowBeam" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -34)
+use_collision = true
+size = Vector3(1.2, 1, 11)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="MidPlatform" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -42)
+use_collision = true
+size = Vector3(6, 1, 6)
+material = SubResource("StandardMaterial3D_cyan")
+
+[node name="Checkpoint1" parent="ObstacleCourse" instance=ExtResource("2_chk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -42)
+
+[node name="Stair1" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.25, -47.5)
+use_collision = true
+size = Vector3(8, 1, 3)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Stair2" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.25, -51.5)
+use_collision = true
+size = Vector3(8, 1, 3)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="Stair3" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.25, -55.5)
+use_collision = true
+size = Vector3(8, 1, 3)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="FinishPlatform" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.25, -65)
+use_collision = true
+size = Vector3(12, 1, 12)
+material = SubResource("StandardMaterial3D_green")
+
+[node name="FinishLine" parent="ObstacleCourse" instance=ExtResource("3_fin")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.75, -65)
+
+[node name="VoidFloor" type="CSGBox3D" parent="ObstacleCourse"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -20, -30)
+use_collision = true
+size = Vector3(120, 1, 120)
+material = SubResource("StandardMaterial3D_dark")
 
 [node name="Players" type="Node3D" parent="." unique_id=918183109]
 
 [node name="DebugConnect" parent="." unique_id=1448538798 instance=ExtResource("1_5qbjp")]
 
+[node name="WinBanner" parent="." instance=ExtResource("4_win")]
+
+[node name="BGMPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("5_bgm")
+autoplay = true
+parameters/looping = true
+
 [node name="SpawnPoints" type="Node3D" parent="." unique_id=969978078]
 
 [node name="SpawnPoint0" type="Marker3D" parent="SpawnPoints" unique_id=1403937500]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 1, 1)
 
 [node name="SpawnPoint1" type="Marker3D" parent="SpawnPoints" unique_id=1672238503]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 1)
+
+[node name="SpawnPoint2" type="Marker3D" parent="SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 1)
+
+[node name="SpawnPoint3" type="Marker3D" parent="SpawnPoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 1)
 
 [node name="PlayerSpawner" type="MultiplayerSpawner" parent="." unique_id=181674675]
 spawn_path = NodePath("../Players")
