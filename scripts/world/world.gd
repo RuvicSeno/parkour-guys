@@ -36,7 +36,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		existing.queue_free()
 
 func _request_spawn(peer_id: int) -> void:
-	var spawn_index: int = peer_id % spawn_points.get_child_count()
+	var spawn_index: int = players_root.get_child_count() % spawn_points.get_child_count()
 	var data: Dictionary = {"peer_id": peer_id, "spawn_index": spawn_index}
 	player_spawner.spawn(data)
 
