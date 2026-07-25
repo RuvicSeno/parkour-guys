@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://c0readyui123"]
+
+[ext_resource type="Script" uid="uid://oulkjokpebvt" path="res://scripts/ui/ready_ui.gd" id="1_ready"]
+
+[node name="ReadyUI" type="CanvasLayer" unique_id=402690758]
+
+[node name="Control" type="Control" parent="." unique_id=521448776]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ready")
+
+[node name="PanelContainer" type="PanelContainer" parent="Control" unique_id=1668925453]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -180.0
+offset_top = 160.0
+offset_right = 180.0
+offset_bottom = 270.0
+grow_horizontal = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer" unique_id=1189110338]
+layout_mode = 2
+alignment = 1
+
+[node name="StatusLabel" type="Label" parent="Control/PanelContainer/VBoxContainer" unique_id=256736669]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Waiting for players..."
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="Control/PanelContainer/VBoxContainer" unique_id=180421230]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+
+[node name="ReadyButton" type="Button" parent="Control/PanelContainer/VBoxContainer" unique_id=1865186643]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "CLICK WHEN READY"

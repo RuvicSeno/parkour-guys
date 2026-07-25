@@ -6,6 +6,8 @@
 [ext_resource type="PackedScene" uid="uid://c7m8n21p4ya32" path="res://scenes/world/FinishLine.tscn" id="3_fin"]
 [ext_resource type="PackedScene" uid="uid://b12la8v1x4751" path="res://scenes/ui/WinBanner.tscn" id="4_win"]
 [ext_resource type="AudioStream" uid="uid://cafld64qn033m" path="res://assets/audio/music/BackgroundMusic.mp3" id="5_bgm"]
+[ext_resource type="PackedScene" uid="uid://c0readyui123" path="res://scenes/ui/ReadyUI.tscn" id="6_rdy"]
+[ext_resource type="PackedScene" uid="uid://ct3fnulqsv83" path="res://scenes/ui/LeaderboardUI.tscn" id="7_ldb"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1wvas"]
 sky_top_color = Color(0.45, 0.72, 0.98, 1)
@@ -101,6 +103,9 @@ material = SubResource("StandardMaterial3D_cyan")
 [node name="Checkpoint1" parent="ObstacleCourse" unique_id=362132779 instance=ExtResource("2_chk")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -42)
 
+[node name="Checkpoint2" parent="ObstacleCourse" unique_id=46532545 instance=ExtResource("2_chk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.3679857, -51.198727)
+
 [node name="Stair1" type="CSGBox3D" parent="ObstacleCourse" unique_id=1677589784]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.25, -47.5)
 use_collision = true
@@ -139,6 +144,10 @@ material = SubResource("StandardMaterial3D_dark")
 [node name="DebugConnect" parent="." unique_id=1448538798 instance=ExtResource("1_5qbjp")]
 
 [node name="WinBanner" parent="." unique_id=506059509 instance=ExtResource("4_win")]
+
+[node name="ReadyUI" parent="." unique_id=1261070134 instance=ExtResource("6_rdy")]
+
+[node name="LeaderboardUI" parent="." unique_id=1463819913 instance=ExtResource("7_ldb")]
 
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="." unique_id=535798540]
 stream = ExtResource("5_bgm")

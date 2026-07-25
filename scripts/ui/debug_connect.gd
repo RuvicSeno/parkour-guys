@@ -52,4 +52,5 @@ func _set_buttons_enabled(enabled: bool) -> void:
 
 func _dismiss() -> void:
 	hide()
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	# Keep mouse visible so the player can click the Ready button.
+	# Mouse will be captured when the match countdown finishes.

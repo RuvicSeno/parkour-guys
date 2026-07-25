@@ -123,9 +123,18 @@ func _setup_visuals() -> void:
 		name_label.modulate = Color(1.0, 1.0, 1.0)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		return
+	var world_node = get_tree().current_scene
+	var match_active: bool = world_node and "game_started" in world_node and world_node.game_started
+
+	# During gameplay: ESC releases cursor, click re-captures it
+	if match_active:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			return
+		if event is InputEventMouseButton and event.pressed:
+			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+				Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+				return
 
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		camera_pivot.rotate_y(-event.relative.x * mouse_sensitivity)
@@ -137,6 +146,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 
 func _physics_process(delta: float) -> void:
+	var world_node = get_tree().current_scene
+	if world_node and "game_started" in world_node and not world_node.game_started:
+		if not is_on_floor():
+			velocity.y -= gravity * delta
+		else:
+			velocity.y = 0.0
+		velocity.x = 0.0
+		velocity.z = 0.0
+		move_and_slide()
+		_update_animation_and_audio(false, false)
+		return
+
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 
