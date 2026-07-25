@@ -26,25 +26,7 @@ func _on_server_created() -> void:
 func _on_peer_connected(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
-	print("[LATE_JOIN_SYNC] telling peer %d about existing players" % peer_id)
-	for existing_player in players_root.get_children():
-		var existing_id: int = int(existing_player.name)
-		var existing_spawn_index: int = existing_player.get_meta("spawn_index")
-		print("[LATE_JOIN_SYNC] -> existing player %d, spawn_index %d" % [existing_id, existing_spawn_index])
-		_replicate_existing_player.rpc_id(peer_id, existing_id, existing_spawn_index)
-
 	_request_spawn(peer_id)
-
-@rpc("authority", "call_remote", "reliable")
-func _replicate_existing_player(peer_id: int, spawn_index: int) -> void:
-	# Runs ONLY on the newly-joined client. Manually instantiates
-	# a local copy of an already-existing player, with correct
-	# authority, bypassing MultiplayerSpawner's auto-replication.
-	if players_root.has_node(str(peer_id)):
-		return
-	var data: Dictionary = {"peer_id": peer_id, "spawn_index": spawn_index}
-	var player: Node = _spawn_player(data)
-	players_root.add_child(player)
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	if not multiplayer.is_server():
