@@ -11,13 +11,11 @@ func _ready() -> void:
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 
-	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
-		# World was (re)loaded while a server already exists (scene transition).
+	if multiplayer.multiplayer_peer is ENetMultiplayerPeer and multiplayer.is_server():
+		# World was (re)loaded while a real server already exists (scene transition).
 		_on_server_created()
 	else:
-		# No server yet — wait for the host to click "Host".
-		# Only connect if we didn't already call it above, otherwise
-		# the host's player gets spawned TWICE.
+		# No real server yet — wait for the host to click "Host".
 		Network.server_created.connect(_on_server_created)
 
 func _on_server_created() -> void:
