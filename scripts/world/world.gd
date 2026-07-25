@@ -26,12 +26,11 @@ func _on_server_created() -> void:
 func _on_peer_connected(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
-	# Tell the NEW peer about every player that already exists,
-	# before spawning their own — bypasses the buggy automatic
-	# late-join replication of pre-existing spawned nodes.
+	print("[LATE_JOIN_SYNC] telling peer %d about existing players" % peer_id)
 	for existing_player in players_root.get_children():
 		var existing_id: int = int(existing_player.name)
 		var existing_spawn_index: int = existing_player.get_meta("spawn_index")
+		print("[LATE_JOIN_SYNC] -> existing player %d, spawn_index %d" % [existing_id, existing_spawn_index])
 		_replicate_existing_player.rpc_id(peer_id, existing_id, existing_spawn_index)
 
 	_request_spawn(peer_id)
