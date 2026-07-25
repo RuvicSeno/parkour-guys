@@ -40,21 +40,17 @@ func _ready() -> void:
 	respawn_position = global_position
 	_setup_animations()
 	_setup_visuals()
-
+	
+	print("[player %s] my_id=%d node_authority=%d is_auth=%s" % [
+		name, multiplayer.get_unique_id(), get_multiplayer_authority(), is_multiplayer_authority()
+	])
+	
 	if not is_multiplayer_authority():
 		set_physics_process(false)
 		set_process_unhandled_input(false)
 		camera.current = false
 		set_process(true)  # NEW: remote peers still need _process to react to anim_state changes
 		return
-	
-	print("[player %s] my_id=%d node_authority=%d spawner_authority=%d is_auth=%s" % [
-	name,
-	multiplayer.get_unique_id(),
-	get_multiplayer_authority(),
-	get_tree().current_scene.get_node("PlayerSpawner").get_multiplayer_authority(),
-	is_multiplayer_authority()
-])
 
 	camera.current = true
 
