@@ -26,7 +26,26 @@ func _on_server_created() -> void:
 func _on_peer_connected(peer_id: int) -> void:
 	if not multiplayer.is_server():
 		return
+	# Tell the NEW peer about every player that already exists,
+	# before spawning their own — bypasses the buggy automatic
+	# late-join replication of pre-existing spawned nodes.
+	for existing_player in players_root.get_children():
+		var existing_id: int = int(existing_player.name)
+		var existing_spawn_index: int = existing_player.get_meta("spawn_index")
+		_replicate_existing_player.rpc_id(peer_id, existing_id, existing_spawn_index)
+
 	_request_spawn(peer_id)
+
+@rpc("authority", "call_remote", "reliable")
+func _replicate_existing_player(peer_id: int, spawn_index: int) -> void:
+	# Runs ONLY on the newly-joined client. Manually instantiates
+	# a local copy of an already-existing player, with correct
+	# authority, bypassing MultiplayerSpawner's auto-replication.
+	if players_root.has_node(str(peer_id)):
+		return
+	var data: Dictionary = {"peer_id": peer_id, "spawn_index": spawn_index}
+	var player: Node = _spawn_player(data)
+	players_root.add_child(player)
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	if not multiplayer.is_server():
@@ -44,16 +63,12 @@ func _request_spawn(peer_id: int) -> void:
 	player_spawner.spawn(data)
 
 func _spawn_player(data: Dictionary) -> Node:
-	
-	print("[SPAWN_FN] called with data=%s | my_id=%d | is_server=%s" % [
-		data, multiplayer.get_unique_id(), multiplayer.is_server()
-	])
-	
 	var peer_id: int = data["peer_id"]
 	var spawn_index: int = data["spawn_index"]
 
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
 	player.name = str(peer_id)
+	player.set_meta("spawn_index", spawn_index)
 
 	var spawn_point: Node3D = spawn_points.get_child(spawn_index)
 	player.position = players_root.to_local(spawn_point.global_position)
