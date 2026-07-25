@@ -36,11 +36,19 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		existing.queue_free()
 
 func _request_spawn(peer_id: int) -> void:
+	
+	print("[REQUEST_SPAWN] requesting spawn for peer_id=%d | my_id=%d" % [peer_id, multiplayer.get_unique_id()])
+	
 	var spawn_index: int = players_root.get_child_count() % spawn_points.get_child_count()
 	var data: Dictionary = {"peer_id": peer_id, "spawn_index": spawn_index}
 	player_spawner.spawn(data)
 
 func _spawn_player(data: Dictionary) -> Node:
+	
+	print("[SPAWN_FN] called with data=%s | my_id=%d | is_server=%s" % [
+		data, multiplayer.get_unique_id(), multiplayer.is_server()
+	])
+	
 	var peer_id: int = data["peer_id"]
 	var spawn_index: int = data["spawn_index"]
 
