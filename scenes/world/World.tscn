@@ -59,82 +59,355 @@ shadow_enabled = true
 [node name="ObstacleCourse" type="Node3D" parent="." unique_id=1363129416]
 
 [node name="StartPlatform" type="CSGBox3D" parent="ObstacleCourse" unique_id=1030725260]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.47516298, 0)
 use_collision = true
 size = Vector3(12, 1, 10)
 material = SubResource("StandardMaterial3D_cyan")
 
 [node name="SteppingStone1" type="CSGBox3D" parent="ObstacleCourse" unique_id=1407012339]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -9)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.599896, 0.013434172, -9)
 use_collision = true
-size = Vector3(3.5, 1, 3.5)
+size = Vector3(3.5, 0.1352539, 3.5)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone5" type="CSGBox3D" parent="ObstacleCourse" unique_id=924071685]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.8702178, 0.013434172, -9)
+use_collision = true
+size = Vector3(3.5, 0.1352539, 3.5)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone10" type="CSGBox3D" parent="ObstacleCourse" unique_id=1571209175]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26.036695, 31.29335, -27.516176)
+use_collision = true
+size = Vector3(3.5, 0.1352539, 3.2128906)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone11" type="CSGBox3D" parent="ObstacleCourse" unique_id=830899212]
+transform = Transform3D(0.8870206, 0, 0.4617298, 0, 1, 0, -0.4617298, 0, 0.8870206, 29.848217, 30.468758, -27.358007)
+use_collision = true
+size = Vector3(3.1569214, 0.1352539, 3.2181396)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone12" type="CSGBox3D" parent="ObstacleCourse" unique_id=1327910042]
+transform = Transform3D(0.45910904, 0, 0.8883798, 0, 1, 0, -0.8883798, 0, 0.45910904, 32.13328, 29.678059, -29.952679)
+use_collision = true
+size = Vector3(2.815, 0.135, 3.072)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone13" type="CSGBox3D" parent="ObstacleCourse" unique_id=595279938]
+transform = Transform3D(0.11672198, 0, 0.9931646, 0, 1, 0, -0.9931646, 0, 0.11672198, 32.372337, 28.55693, -32.941578)
+use_collision = true
+size = Vector3(2.471, 0.135, 2.688)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone14" type="CSGBox3D" parent="ObstacleCourse" unique_id=368537373]
+transform = Transform3D(0.6643743, 0, -0.7474003, 0, 1, 0, 0.7474003, 0, 0.6643743, 30.878887, 27.826117, -35.776924)
+use_collision = true
+size = Vector3(2.128, 0.135, 2.32)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone15" type="CSGBox3D" parent="ObstacleCourse" unique_id=1378041009]
+transform = Transform3D(-0.9984555, -0.0011322211, -0.055546895, -0.00082817936, 0.99998456, -0.005496321, 0.05555226, -0.005441828, -0.9984411, 28.635675, 27.189558, -37.110428)
+use_collision = true
+size = Vector3(1.785, 0.135, 1.862)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone16" type="CSGBox3D" parent="ObstacleCourse" unique_id=867781169]
+transform = Transform3D(-0.70716727, 0, -0.7070464, 0, 1, 0, 0.7070464, 0, -0.70716727, 26.624369, 26.754868, -36.502655)
+use_collision = true
+size = Vector3(1.442, 0.064, 1.7306728)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone18" type="CSGBox3D" parent="ObstacleCourse" unique_id=1876205026]
+transform = Transform3D(0.3379413, 0, -0.9411673, 0, 1, 0, 0.9411673, 0, 0.3379413, 25.320677, 26.324074, -34.618767)
+use_collision = true
+size = Vector3(1.528997, 0.0637207, 1.522644)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone19" type="CSGBox3D" parent="ObstacleCourse" unique_id=61563347]
+transform = Transform3D(0.895095, 0, -0.44587564, 0, 1, 0, 0.44587564, 0, 0.895095, 25.277287, 26.03523, -32.571583)
+use_collision = true
+size = Vector3(1.3932731, 0.0637207, 1.355978)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone20" type="CSGBox3D" parent="ObstacleCourse" unique_id=1631530907]
+transform = Transform3D(0.86711234, 0, 0.49811274, 0, 1, 0, -0.49811274, 0, 0.86711234, 26.074265, 25.670609, -30.990309)
+use_collision = true
+size = Vector3(1.3932731, 0.0637207, 1.355978)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone21" type="CSGBox3D" parent="ObstacleCourse" unique_id=1225375144]
+transform = Transform3D(-0.12441939, 0, 0.9922297, 0, 1, 0, -0.9922297, 0, -0.12441939, 27.486164, 25.373589, -29.814714)
+use_collision = true
+size = Vector3(1.2620662, 0.0637207, 1.1864485)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone22" type="CSGBox3D" parent="ObstacleCourse" unique_id=1372765334]
+transform = Transform3D(-0.6411679, 0, 0.76740056, 0, 1, 0, -0.76740056, 0, -0.6411679, 28.82655, 25.02393, -29.382504)
+use_collision = true
+size = Vector3(1.0441191, 0.0637207, 0.85514486)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone23" type="CSGBox3D" parent="ObstacleCourse" unique_id=1430531298]
+transform = Transform3D(-0.988341, 0, 0.15225737, 0, 1, 0, -0.15225737, 0, -0.988341, 29.446898, 24.421064, -30.308968)
+use_collision = true
+size = Vector3(0.9121528, 0.0637207, 0.85514486)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone24" type="CSGBox3D" parent="ObstacleCourse" unique_id=853449371]
+transform = Transform3D(-0.9023265, -0.4294503, 0.037139334, -0.42947936, 0.9030446, 0.007597714, -0.03680133, -0.009094949, -0.9992812, 31.637468, 21.741947, -33.51592)
+use_collision = true
+size = Vector3(0.9121528, 0.0637207, 1.5957935)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone25" type="CSGBox3D" parent="ObstacleCourse" unique_id=796042097]
+transform = Transform3D(-0.91938514, 0.38935134, -0.055999197, 0.39121136, 0.9199075, -0.026904685, 0.04103871, -0.04664327, -0.99806815, 29.72913, 19.228981, -39.404488)
+use_collision = true
+size = Vector3(0.98152435, 0.0637207, 1.4183147)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="SteppingStone26" type="CSGBox3D" parent="ObstacleCourse" unique_id=299357405]
+transform = Transform3D(-0.70307475, -0.71026343, -0.03481575, -0.7109652, 0.70309067, 0.013857715, 0.014636047, 0.034495816, -0.99929774, 32.043602, 17.89485, -43.228912)
+use_collision = true
+size = Vector3(1.1759824, 0.0637207, 1.4301351)
 material = SubResource("StandardMaterial3D_yellow")
 
 [node name="SteppingStone2" type="CSGBox3D" parent="ObstacleCourse" unique_id=687239690]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 0, -14.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.062123775, 1.8069217, -14.362144)
 use_collision = true
-size = Vector3(3, 1, 3)
+size = Vector3(10.856995, 0.4560547, 3)
 material = SubResource("StandardMaterial3D_orange")
 
-[node name="SteppingStone3" type="CSGBox3D" parent="ObstacleCourse" unique_id=1158164626]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 0.5, -20)
-use_collision = true
-size = Vector3(3, 1, 3)
-material = SubResource("StandardMaterial3D_yellow")
-
 [node name="SteppingStone4" type="CSGBox3D" parent="ObstacleCourse" unique_id=581149330]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -25.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.2366152, -20.755125)
 use_collision = true
 size = Vector3(4, 1, 4)
 material = SubResource("StandardMaterial3D_purple")
 
-[node name="NarrowBeam" type="CSGBox3D" parent="ObstacleCourse" unique_id=1919081304]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -34)
+[node name="SteppingStone6" type="CSGBox3D" parent="ObstacleCourse" unique_id=446775049]
+transform = Transform3D(-0.9999999, 0.0006075017, -6.2175677e-06, -5.812648e-11, -0.010234134, -0.9999477, -0.0006075166, -0.99994737, 0.0102341315, 0.08763864, 4.2578583, -22.664425)
 use_collision = true
-size = Vector3(1.2, 1, 11)
+size = Vector3(4, 0.16992188, 3.0458612)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="SteppingStone7" type="CSGBox3D" parent="ObstacleCourse" unique_id=440738594]
+transform = Transform3D(0.04061532, 0.99912256, -0.010225684, -1.9137594e-10, -0.0102341315, -0.9999474, -0.99917483, 0.040613204, -0.0004156635, 0.037391454, 5.1263266, -20.758795)
+use_collision = true
+size = Vector3(4, 0.16992188, 4.480957)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="SteppingStone8" type="CSGBox3D" parent="ObstacleCourse" unique_id=634662964]
+transform = Transform3D(-0.0013963506, 0.99994653, -0.010234121, -1.5355003e-10, -0.010234133, -0.99994767, -0.9999991, -0.0013962537, 1.4289166e-05, -1.8832831, 4.265706, -20.75791)
+use_collision = true
+size = Vector3(4, 0.16992188, 3.0467682)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="SteppingStone9" type="CSGBox3D" parent="ObstacleCourse" unique_id=1026274059]
+transform = Transform3D(-0.0013963506, 0.99994653, -0.010234121, -1.5355003e-10, -0.010234133, -0.99994767, -0.9999991, -0.0013962537, 1.4289166e-05, 2.0307024, 4.258038, -20.75791)
+use_collision = true
+size = Vector3(4, 0.16992188, 3.0491476)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="NarrowBeam" type="CSGBox3D" parent="ObstacleCourse" unique_id=1919081304]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5019865, 6.0353374, -31.341349)
+use_collision = true
+size = Vector3(0.41669923, 0.35058594, 11)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="NarrowBeam2" type="CSGBox3D" parent="ObstacleCourse" unique_id=823147198]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5019865, 6.0353374, -31.341349)
+use_collision = true
+size = Vector3(0.41669923, 0.35058594, 11)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="NarrowBeam3" type="CSGBox3D" parent="ObstacleCourse" unique_id=1839007345]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.2903152, 6.0353374, -31.341349)
+use_collision = true
+size = Vector3(0.41669923, 0.35058594, 11)
 material = SubResource("StandardMaterial3D_orange")
 
 [node name="MidPlatform" type="CSGBox3D" parent="ObstacleCourse" unique_id=1671679142]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -42)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1650331, 7.418853, -41.15304)
 use_collision = true
 size = Vector3(6, 1, 6)
 material = SubResource("StandardMaterial3D_cyan")
 
 [node name="Checkpoint1" parent="ObstacleCourse" unique_id=362132779 instance=ExtResource("2_chk")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -42)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1650331, 7.918853, -41.15304)
+
+[node name="MidPlatform2" type="CSGBox3D" parent="ObstacleCourse" unique_id=1798568933]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.421455, 16.042301, -43.5926)
+use_collision = true
+size = Vector3(6, 1, 6)
+material = SubResource("StandardMaterial3D_cyan")
 
 [node name="Checkpoint2" parent="ObstacleCourse" unique_id=46532545 instance=ExtResource("2_chk")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.3679857, -51.198727)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.421455, 16.542301, -43.5926)
+
+[node name="MidPlatform3" type="CSGBox3D" parent="ObstacleCourse" unique_id=1541397080]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.499084, 12.8182125, -48.721153)
+use_collision = true
+size = Vector3(6, 1, 6)
+material = SubResource("StandardMaterial3D_cyan")
+
+[node name="Checkpoint3" parent="ObstacleCourse" unique_id=1027212604 instance=ExtResource("2_chk")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 27.499084, 13.3182125, -48.721153)
 
 [node name="Stair1" type="CSGBox3D" parent="ObstacleCourse" unique_id=1677589784]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.25, -47.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.008484, 9.673131, -48.10174)
 use_collision = true
-size = Vector3(8, 1, 3)
+size = Vector3(2.1635132, 0.28808594, 1.9554443)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal" type="CSGBox3D" parent="ObstacleCourse" unique_id=2051343939]
+transform = Transform3D(-0.763925, -0.6453049, 0, 0.6453049, -0.763925, 0, 0, 0, 1, 12.28625, 19.225473, -36.56166)
+use_collision = true
+size = Vector3(2.896984, 0.28808594, 3.3551636)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal2" type="CSGBox3D" parent="ObstacleCourse" unique_id=332954893]
+transform = Transform3D(-0.73489875, -0.67817676, 0, 0.67817676, -0.73489875, 0, 0, 0, 1, 12.041361, 24.344194, -27.13811)
+use_collision = true
+size = Vector3(2.3480282, 0.28808594, 2.3232117)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal5" type="CSGBox3D" parent="ObstacleCourse" unique_id=1844046098]
+transform = Transform3D(-0.73489875, -0.67817676, 0, 0.67817676, -0.73489875, 0, 0, 0, 1, 12.486887, 28.565891, -17.31392)
+use_collision = true
+size = Vector3(2.3509579, 0.28808594, 2.3074646)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal10" type="CSGBox3D" parent="ObstacleCourse" unique_id=1192738081]
+transform = Transform3D(-0.05329492, -0.049181387, 0.9973671, 0.67817676, -0.73489875, -1.7944904e-08, 0.73296374, 0.6763912, 0.072519965, 15.156313, 29.573526, -11.028607)
+use_collision = true
+size = Vector3(2.3509579, 0.28808594, 2.3074646)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal3" type="CSGBox3D" parent="ObstacleCourse" unique_id=1651553481]
+transform = Transform3D(0.79251325, -0.6098546, 0, 0.6098546, 0.79251325, 0, 0, 0, 1, 17.127228, 21.877777, -31.170095)
+use_collision = true
+size = Vector3(1.865639, 0.28808594, 2.5706406)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal4" type="CSGBox3D" parent="ObstacleCourse" unique_id=2069434136]
+transform = Transform3D(0.7267295, -0.6869237, 0, 0.6869237, 0.7267295, 0, 0, 0, 1, 17.410297, 26.278254, -22.371517)
+use_collision = true
+size = Vector3(2.345953, 0.28808594, 2.5761414)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal6" type="CSGBox3D" parent="ObstacleCourse" unique_id=472746704]
+transform = Transform3D(-0.03382584, 0.031973068, 0.9989162, 0.6869237, 0.7267295, 0, -0.7259419, 0.6861792, -0.046545297, 18.908274, 31.72926, -16.181692)
+use_collision = true
+size = Vector3(2.0152974, 0.28808594, 2.2586517)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal8" type="CSGBox3D" parent="ObstacleCourse" unique_id=1742864690]
+transform = Transform3D(-0.7261425, 0.6863688, -0.040187545, 0.68692374, 0.7267296, 3.821178e-09, 0.029205494, -0.027605753, -0.9991923, 22.395462, 32.25291, -22.338892)
+use_collision = true
+size = Vector3(1.9226089, 0.28808594, 1.7987785)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal7" type="CSGBox3D" parent="ObstacleCourse" unique_id=2142472846]
+transform = Transform3D(0.03207204, -0.030315332, -0.99902576, 0.6869237, 0.7267295, -6.443635e-09, 0.7260216, -0.6862545, 0.04413206, 23.744198, 32.012848, -10.709163)
+use_collision = true
+size = Vector3(2.0536819, 0.28808594, 2.3016815)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Diagonal9" type="CSGBox3D" parent="ObstacleCourse" unique_id=518238732]
+transform = Transform3D(0.72672856, -0.68692285, -0.0016557276, 0.68692374, 0.7267296, 6.7380808e-09, 0.0012033582, -0.0011374354, 0.9999987, 27.378767, 32.29899, -16.442799)
+use_collision = true
+size = Vector3(2.0567641, 0.28808594, 2.0711288)
+material = SubResource("StandardMaterial3D_purple")
+
+[node name="Stair5" type="CSGBox3D" parent="ObstacleCourse" unique_id=982266106]
+transform = Transform3D(1, 0, 0, 0, 0.06563836, 0.9978435, 0, -0.9978435, 0.06563836, 7.649248, 17.760258, -59.862595)
+use_collision = true
+size = Vector3(18.88115, 0.28808594, 18.206757)
 material = SubResource("StandardMaterial3D_purple")
 
 [node name="Stair2" type="CSGBox3D" parent="ObstacleCourse" unique_id=416382509]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.25, -51.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5364685, 10.520911, -52.695755)
 use_collision = true
-size = Vector3(8, 1, 3)
+size = Vector3(1.5961304, 0.3017578, 3)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="Stair12" type="CSGBox3D" parent="ObstacleCourse" unique_id=987447632]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.017681, 16.023575, -51.72843)
+use_collision = true
+size = Vector3(1.5961304, 0.3017578, 6.4815674)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="Stair15" type="CSGBox3D" parent="ObstacleCourse" unique_id=869029135]
+transform = Transform3D(0.012773041, -0.63990927, -0.7683443, 0.010636445, 0.7684505, -0.63982064, 0.99986166, 5.44683e-10, 0.016621806, 7.8671427, 11.820372, -42.602165)
+use_collision = true
+size = Vector3(5.4757996, 0.3017578, 13.076028)
+material = SubResource("StandardMaterial3D_yellow")
+
+[node name="Stair16" type="CSGBox3D" parent="ObstacleCourse" unique_id=809531695]
+transform = Transform3D(0.054984417, 0.23755877, -0.9698157, 0.0226283, 0.9707392, 0.23906796, 0.9982306, -0.03509029, 0.04799996, 20.417265, 14.904875, -46.377518)
+use_collision = true
+size = Vector3(5.4757996, 0.3017578, 13.076028)
 material = SubResource("StandardMaterial3D_yellow")
 
 [node name="Stair3" type="CSGBox3D" parent="ObstacleCourse" unique_id=1700740523]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.25, -55.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.44956255, 11.777225, -58.171288)
 use_collision = true
-size = Vector3(8, 1, 3)
+size = Vector3(1.1411743, 0.29052734, 3)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="Stair4" type="CSGBox3D" parent="ObstacleCourse" unique_id=580797520]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.2697558, 12.959867, -59.357994)
+use_collision = true
+size = Vector3(1.1411743, 0.16357422, 1.3448486)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="Stair6" type="CSGBox3D" parent="ObstacleCourse" unique_id=1760053552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.938367, 13.629569, -58.632908)
+use_collision = true
+size = Vector3(1.1411743, 0.08594922, 1.0078735)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="Stair7" type="CSGBox3D" parent="ObstacleCourse" unique_id=700737950]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2453637, 12.792394, -59.61705)
+use_collision = true
+size = Vector3(0.89112854, 0.13135937, 0.511673)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="Stair8" type="CSGBox3D" parent="ObstacleCourse" unique_id=1781459997]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9.401837, 13.470666, -59.28919)
+use_collision = true
+size = Vector3(0.6544266, 0.13135937, 1.1673965)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="Stair9" type="CSGBox3D" parent="ObstacleCourse" unique_id=1340641958]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.73256, 14.080815, -59.140907)
+use_collision = true
+size = Vector3(0.89112854, 0.13135937, 1.3437042)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="Stair10" type="CSGBox3D" parent="ObstacleCourse" unique_id=44458498]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14.006432, 14.348945, -58.322353)
+use_collision = true
+size = Vector3(1.1565018, 0.13135937, 1.14888)
+material = SubResource("StandardMaterial3D_orange")
+
+[node name="Stair11" type="CSGBox3D" parent="ObstacleCourse" unique_id=257100239]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.388329, 14.510934, -57.670235)
+use_collision = true
+size = Vector3(1.317936, 0.13135937, 1.2497444)
 material = SubResource("StandardMaterial3D_orange")
 
 [node name="FinishPlatform" type="CSGBox3D" parent="ObstacleCourse" unique_id=312984517]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.25, -65)
+transform = Transform3D(-0.04365884, 0, -0.9990465, 0, 1, 0, 0.9990465, 0, -0.04365884, 46.074455, 29.257084, -48.74226)
 use_collision = true
 size = Vector3(12, 1, 12)
 material = SubResource("StandardMaterial3D_green")
 
 [node name="FinishLine" parent="ObstacleCourse" unique_id=1057952407 instance=ExtResource("3_fin")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.75, -65)
+transform = Transform3D(-0.04365884, 0, -0.9990465, 0, 1, 0, 0.9990465, 0, -0.04365884, 46.074455, 29.757084, -48.74226)
 
 [node name="VoidFloor" type="CSGBox3D" parent="ObstacleCourse" unique_id=1900800384]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -20, -30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12046242, -19.92606, -29.960583)
 use_collision = true
 size = Vector3(120, 1, 120)
 material = SubResource("StandardMaterial3D_dark")
@@ -170,3 +443,45 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 1)
 
 [node name="PlayerSpawner" type="MultiplayerSpawner" parent="." unique_id=181674675]
 spawn_path = NodePath("../Players")
+
+[node name="CSGCylinder3D" type="CSGCylinder3D" parent="." unique_id=179664735]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35.629097, 20.591238, -48.47052)
+use_collision = true
+radius = 3.2246094
+height = 15.361816
+sides = 13
+
+[node name="CSGSphere3D" type="CSGSphere3D" parent="." unique_id=365212033]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.823618, 15.012276, -48.64346)
+use_collision = true
+rings = 14
+
+[node name="CSGSphere3D3" type="CSGSphere3D" parent="." unique_id=394551207]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33.04502, 17.06943, -45.774475)
+use_collision = true
+rings = 14
+
+[node name="CSGSphere3D5" type="CSGSphere3D" parent="." unique_id=1766933386]
+transform = Transform3D(0.9999878, -0.00071249227, -0.0048914924, 0.00068859814, 0.99998784, -0.0048799124, 0.004894913, 0.0048764814, 0.9999761, 35.514935, 19.049067, -44.6577)
+use_collision = true
+rings = 14
+
+[node name="CSGSphere3D7" type="CSGSphere3D" parent="." unique_id=51262508]
+transform = Transform3D(0.9999879, -0.00071249245, -0.0048914924, 0.00068859826, 0.99998796, -0.004879913, 0.004894913, 0.0048764814, 0.9999761, 38.221798, 21.08005, -45.573067)
+use_collision = true
+rings = 14
+
+[node name="CSGSphere3D9" type="CSGSphere3D" parent="." unique_id=280472445]
+transform = Transform3D(0.9999879, -0.00071249245, -0.0048914924, 0.00068859826, 0.99998796, -0.004879913, 0.004894913, 0.0048764814, 0.9999761, 39.48349, 22.872803, -48.183975)
+use_collision = true
+rings = 14
+
+[node name="CSGSphere3D11" type="CSGSphere3D" parent="." unique_id=125008286]
+transform = Transform3D(0.9999879, -0.00071249245, -0.0048914924, 0.00068859826, 0.99998796, -0.004879913, 0.004894913, 0.0048764814, 0.9999761, 38.756016, 24.968105, -50.802364)
+use_collision = true
+rings = 14
+
+[node name="CSGSphere3D12" type="CSGSphere3D" parent="." unique_id=1023441828]
+transform = Transform3D(0.9999879, -0.00071249245, -0.0048914924, 0.00068859826, 0.99998796, -0.004879913, 0.004894913, 0.0048764814, 0.9999761, 35.33188, 26.665653, -52.142864)
+use_collision = true
+rings = 14
