@@ -192,7 +192,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	_update_animation_and_audio(input_dir.length_squared() > 0.0, jumped)
-
+# Void Area
 	if global_position.y < -10.0:
 		velocity = Vector3.ZERO
 		global_position = respawn_position
