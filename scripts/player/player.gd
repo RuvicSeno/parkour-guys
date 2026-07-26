@@ -40,16 +40,12 @@ func _ready() -> void:
 	respawn_position = global_position
 	_setup_animations()
 	_setup_visuals()
-	
-	print("[player %s] my_id=%d node_authority=%d is_auth=%s" % [
-		name, multiplayer.get_unique_id(), get_multiplayer_authority(), is_multiplayer_authority()
-	])
+	_apply_animation(anim_state)
 	
 	if not is_multiplayer_authority():
 		set_physics_process(false)
 		set_process_unhandled_input(false)
 		camera.current = false
-		set_process(true)  # NEW: remote peers still need _process to react to anim_state changes
 		return
 
 	camera.current = true
@@ -78,7 +74,25 @@ func _setup_animations() -> void:
 			var inst = scene.instantiate()
 			var source_ap: AnimationPlayer = inst.find_child("AnimationPlayer", true, false) as AnimationPlayer
 			if source_ap and source_ap.get_animation_list().size() > 0:
-				var src_name: String = source_ap.get_animation_list()[0]
+				var list = source_ap.get_animation_list()
+				var src_name: String = ""
+				
+				# 1. Prefer exact match for key if present
+				if anim_key in list:
+					src_name = anim_key
+				# 2. Prefer "mixamo_com" (default FBX imported clip name)
+				elif "mixamo_com" in list:
+					src_name = "mixamo_com"
+				# 3. Look for partial match (case insensitive)
+				else:
+					for a_name in list:
+						if anim_key.replace("running_jump", "jump") in a_name.to_lower():
+							src_name = a_name
+							break
+
+				if src_name == "":
+					src_name = list[0]
+
 				var anim: Animation = source_ap.get_animation(src_name).duplicate()
 				anim.loop_mode = Animation.LOOP_LINEAR if anim_key in ["idle", "running", "falling_idle"] else Animation.LOOP_NONE
 				lib.add_animation(anim_key, anim)
@@ -91,20 +105,20 @@ func _setup_animations() -> void:
 	else:
 		animation_player.add_animation_library("", lib)
 
-	# NEW: debug print so you can verify track paths resolve against stick_man.
-	# Delete this block once animations are confirmed working.
-	if animation_player.has_animation_library(""):
-		var check_lib := animation_player.get_animation_library("")
-		for key in check_lib.get_animation_list():
-			var a: Animation = check_lib.get_animation(key)
-			if a.get_track_count() > 0:
-				print("[anim debug] '%s' track 0 path: %s" % [key, a.track_get_path(0)])
-			else:
-				print("[anim debug] '%s' has NO tracks after duplicate!" % key)
+# Replicated player color index assigned by world spawner
+var player_color_index: int = 0: set = _set_player_color_index
+
+func _set_player_color_index(val: int) -> void:
+	player_color_index = val
+	if is_inside_tree():
+		_setup_visuals()
 
 func _setup_visuals() -> void:
+	if not is_inside_tree() or multiplayer == null:
+		return
+
 	var auth_id: int = get_multiplayer_authority()
-	var color_idx: int = abs(auth_id) % PLAYER_COLORS.size()
+	var color_idx: int = abs(player_color_index) % PLAYER_COLORS.size()
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = PLAYER_COLORS[color_idx]
 	mat.roughness = 0.3
@@ -115,12 +129,13 @@ func _setup_visuals() -> void:
 			if mesh_node is MeshInstance3D:
 				mesh_node.material_override = mat
 
-	if auth_id == multiplayer.get_unique_id():
-		name_label.text = "YOU (P%d)" % auth_id
-		name_label.modulate = Color(0.3, 1.0, 0.5)
-	else:
-		name_label.text = "Player %d" % auth_id
-		name_label.modulate = Color(1.0, 1.0, 1.0)
+	if name_label:
+		if auth_id == multiplayer.get_unique_id():
+			name_label.text = "YOU (P%d)" % auth_id
+			name_label.modulate = Color(0.3, 1.0, 0.5)
+		else:
+			name_label.text = "Player %d" % auth_id
+			name_label.modulate = Color(1.0, 1.0, 1.0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	var world_node = get_tree().current_scene
@@ -146,20 +161,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 
 func _physics_process(delta: float) -> void:
+	# Always apply gravity first so move_and_slide maintains solid floor contact
+	velocity.y -= gravity * delta
+
 	var world_node = get_tree().current_scene
 	if world_node and "game_started" in world_node and not world_node.game_started:
-		if not is_on_floor():
-			velocity.y -= gravity * delta
-		else:
-			velocity.y = 0.0
 		velocity.x = 0.0
 		velocity.z = 0.0
 		move_and_slide()
-		_update_animation_and_audio(false, false)
+		# Force idle during pre-match — do NOT call _update_animation_and_audio()
+		# because is_on_floor() can flicker false when peers connect, which
+		# sets anim_state to "falling_idle" and replicates it to everyone.
+		anim_state = "idle"
 		return
-
-	if not is_on_floor():
-		velocity.y -= gravity * delta
 
 	var jumped: bool = false
 	if Input.is_action_just_pressed("jump") and is_on_floor():
@@ -218,12 +232,8 @@ func _update_animation_and_audio(is_moving: bool, just_jumped: bool) -> void:
 		else:
 			target_anim = "falling_idle"
 
-	# CHANGED: authority sets the replicated var (which triggers _set_anim_state
-	# locally too, so the authority's own screen still animates as before).
 	anim_state = target_anim
 
-# NEW: setter fires on the authority (local change) AND on remote peers
-# (when MultiplayerSynchronizer applies an incoming value).
 func _set_anim_state(value: String) -> void:
 	anim_state = value
 	_apply_animation(value)

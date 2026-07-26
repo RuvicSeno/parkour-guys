@@ -51,6 +51,7 @@ func _spawn_player(data: Dictionary) -> Node:
 
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
 	player.name = str(peer_id)
+	player.player_color_index = spawn_index
 	player.set_meta("spawn_index", spawn_index)
 
 	var spawn_point: Node3D = spawn_points.get_child(spawn_index)
