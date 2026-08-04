@@ -1,0 +1,60 @@
+[gd_scene format=3 uid="uid://dj14jbhp3dycw"]
+
+[ext_resource type="Script" uid="uid://bjkqcdn5fmcck" path="res://scripts/ui/speech_bubble_3d.gd" id="1_bubble"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bubble"]
+bg_color = Color(0.08, 0.09, 0.14, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.3)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[node name="SpeechBubble3D" type="Node3D" unique_id=1239871]
+script = ExtResource("1_bubble")
+
+[node name="SubViewport" type="SubViewport" parent="." unique_id=1239872]
+transparent_bg = true
+size = Vector2i(264, 60)
+render_target_update_mode = 4
+
+[node name="PanelContainer" type="PanelContainer" parent="SubViewport" unique_id=1239873]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -2.0
+offset_right = 2.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_bubble")
+
+[node name="MarginContainer" type="MarginContainer" parent="SubViewport/PanelContainer" unique_id=1239874]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="Label" type="Label" parent="SubViewport/PanelContainer/MarginContainer" unique_id=1239875]
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 60
+text = "Hello!"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Sprite3D" type="Sprite3D" parent="." unique_id=1239876]
+pixel_size = 0.0035
+billboard = 1
+double_sided = false
+no_depth_test = true

@@ -1,0 +1,73 @@
+[gd_scene format=3 uid="uid://chatui123456"]
+
+[ext_resource type="Script" uid="uid://tum72xfmmyu3" path="res://scripts/ui/chat_ui.gd" id="1_chat"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.08, 0.09, 0.12, 0.75)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_input"]
+content_margin_left = 8.0
+content_margin_right = 8.0
+bg_color = Color(0.04, 0.05, 0.07, 0.6)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="ChatUI" type="CanvasLayer" unique_id=981273981]
+
+[node name="Control" type="Control" parent="." unique_id=981273982]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_chat")
+
+[node name="PanelContainer" type="PanelContainer" parent="Control" unique_id=981273983]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -240.0
+offset_right = 380.0
+offset_bottom = -20.0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="MarginContainer" type="MarginContainer" parent="Control/PanelContainer" unique_id=981273984]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control/PanelContainer/MarginContainer" unique_id=981273985]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RichTextLabel" type="RichTextLabel" parent="Control/PanelContainer/MarginContainer/VBoxContainer" unique_id=981273986]
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 0
+theme_override_font_sizes/normal_font_size = 14
+theme_override_font_sizes/bold_font_size = 14
+bbcode_enabled = true
+scroll_following = true
+selection_enabled = true
+
+[node name="LineEdit" type="LineEdit" parent="Control/PanelContainer/MarginContainer/VBoxContainer" unique_id=981273987]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+theme_override_styles/normal = SubResource("StyleBoxFlat_input")
+theme_override_styles/focus = SubResource("StyleBoxFlat_input")
+placeholder_text = "Press '/' to chat..."
+max_length = 200

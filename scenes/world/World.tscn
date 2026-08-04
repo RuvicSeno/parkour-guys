@@ -8,6 +8,7 @@
 [ext_resource type="AudioStream" uid="uid://cafld64qn033m" path="res://assets/audio/music/BackgroundMusic.mp3" id="5_bgm"]
 [ext_resource type="PackedScene" uid="uid://c0readyui123" path="res://scenes/ui/ReadyUI.tscn" id="6_rdy"]
 [ext_resource type="PackedScene" uid="uid://ct3fnulqsv83" path="res://scenes/ui/LeaderboardUI.tscn" id="7_ldb"]
+[ext_resource type="PackedScene" uid="uid://chatui123456" path="res://scenes/ui/ChatUI.tscn" id="8_chat"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1wvas"]
 sky_top_color = Color(0.45, 0.72, 0.98, 1)
@@ -610,6 +611,8 @@ material = SubResource("StandardMaterial3D_bb7h1")
 
 [node name="LeaderboardUI" parent="." unique_id=1463819913 instance=ExtResource("7_ldb")]
 
+[node name="ChatUI" parent="." unique_id=1463819914 instance=ExtResource("8_chat")]
+
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="." unique_id=535798540]
 stream = ExtResource("5_bgm")
 autoplay = true
@@ -632,21 +635,21 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.1, 1)
 [node name="PlayerSpawner" type="MultiplayerSpawner" parent="." unique_id=181674675]
 spawn_path = NodePath("../Players")
 
-[node name="Label3D" type="Label3D" parent="." unique_id=1192491827]
+[node name="Sign1" type="Label3D" parent="." unique_id=1192491827]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.145529, 33.99259, -30.205347)
 alpha_cut = 2
 modulate = Color(1, 0, 0, 1)
 text = "🢂"
 font_size = 200
 
-[node name="Label3D2" type="Label3D" parent="." unique_id=1442414232]
+[node name="Sign2" type="Label3D" parent="." unique_id=1442414232]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 29.145529, 35.392593, -30.205347)
 alpha_cut = 2
 text = "Will you take the risk of the 
 RED BALL of DEATH?"
 font_size = 100
 
-[node name="Label3D3" type="Label3D" parent="." unique_id=739519411]
+[node name="Sign3" type="Label3D" parent="." unique_id=739519411]
 transform = Transform3D(0.8660253, 0, -0.50000006, 0, 1, 0, 0.50000006, 0, 0.8660253, 44.219997, 32.49259, -55.399708)
 alpha_cut = 2
 text = "Find The 

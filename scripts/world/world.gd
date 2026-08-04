@@ -20,6 +20,8 @@ func _ready() -> void:
 	else:
 		Network.server_created.connect(_on_server_created)
 
+	chat_message_received.connect(_on_chat_message_received)
+
 func _on_server_created() -> void:
 	_request_spawn(multiplayer.get_unique_id())
 	_update_ready_ui.rpc(ready_peers.size(), _get_total_player_count())
@@ -112,13 +114,65 @@ func _start_match() -> void:
 	var ready_ui = get_node_or_null("ReadyUI/Control")
 	if ready_ui and ready_ui.has_method("hide_ui"):
 		ready_ui.hide_ui()
+	var chat_ui = get_node_or_null("ChatUI/Control")
+	if chat_ui and chat_ui.has_method("show_ui"):
+		chat_ui.show_ui()
 	# NOW capture the mouse for gameplay camera control
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
 
 func _get_total_player_count() -> int:
 	if multiplayer.multiplayer_peer != null:
 		return multiplayer.get_peers().size() + 1
 	return 1
+
+# --- CHAT SYSTEM (message pipe only — UI subscribes to chat_message_received) ---
+
+signal chat_message_received(sender_id: int, sender_name: String, message: String)
+
+const MAX_CHAT_MESSAGE_LENGTH: int = 200
+
+## Public entry point for UI (Bucket 3) to call, mirrors request_set_ready().
+func send_chat_message(raw_text: String) -> void:
+	if not game_started:
+		return
+	if multiplayer.is_server():
+		_process_chat_message(multiplayer.get_unique_id(), raw_text)
+	else:
+		_request_chat_message.rpc_id(1, raw_text)
+
+@rpc("any_peer", "reliable")
+func _request_chat_message(raw_text: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	_process_chat_message(sender_id, raw_text)
+
+## Runs on the server only. This is the authoritative validation point —
+## never trust send_chat_message()'s client-side game_started check alone.
+func _process_chat_message(sender_id: int, raw_text: String) -> void:
+	if not game_started:
+		return
+	var clean_text: String = raw_text.strip_edges().left(MAX_CHAT_MESSAGE_LENGTH)
+	if clean_text.is_empty():
+		return
+	var sender_name: String = Network.player_names.get(sender_id, "Player %d" % sender_id)
+	_broadcast_chat_message.rpc(sender_id, sender_name, clean_text)
+
+@rpc("authority", "call_local", "reliable")
+func _broadcast_chat_message(sender_id: int, sender_name: String, message: String) -> void:
+	chat_message_received.emit(sender_id, sender_name, message)
+
+func _on_chat_message_received(sender_id: int, sender_name: String, message: String) -> void:
+	var chat_ui = get_node_or_null("ChatUI/Control")
+	if chat_ui and chat_ui.has_method("add_message"):
+		chat_ui.add_message(sender_id, sender_name, message)
+
+	if players_root:
+		var p_node = players_root.get_node_or_null(str(sender_id))
+		if p_node and p_node.has_method("add_chat_bubble"):
+			p_node.add_chat_bubble(message)
+
 
 # --- FINISH & LEADERBOARD SYSTEM ---
 

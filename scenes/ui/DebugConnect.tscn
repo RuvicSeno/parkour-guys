@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_imsc6")
 
-[node name="ColorRect" type="ColorRect" parent="."]
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1391548188]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,7 +20,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.15, 0.12, 0.2, 1)
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1251681367]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -35,39 +35,44 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 16
 
-[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="VBoxContainer" unique_id=764368969]
 layout_mode = 2
 theme_override_font_sizes/font_size = 48
 text = "Parkour Guys"
 horizontal_alignment = 1
 
-[node name="Spacer" type="Control" parent="VBoxContainer"]
-layout_mode = 2
+[node name="Spacer" type="Control" parent="VBoxContainer" unique_id=1194401610]
 custom_minimum_size = Vector2(0, 8)
-
-[node name="IPLineEdit" type="LineEdit" parent="VBoxContainer"]
 layout_mode = 2
+
+[node name="NameLineEdit" type="LineEdit" parent="VBoxContainer" unique_id=1980269415]
 custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+alignment = 1
+
+[node name="IPLineEdit" type="LineEdit" parent="VBoxContainer" unique_id=1453143452]
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
 theme_override_font_sizes/font_size = 18
 placeholder_text = "Enter host IP (e.g. 192.168.1.10)"
 alignment = 1
 
-[node name="HostButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
+[node name="HostButton" type="Button" parent="VBoxContainer" unique_id=198269293]
 custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Host Game"
 
-[node name="JoinButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
+[node name="JoinButton" type="Button" parent="VBoxContainer" unique_id=432829236]
 custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Join Game"
 
-[node name="StatusLabel" type="Label" parent="VBoxContainer"]
+[node name="StatusLabel" type="Label" parent="VBoxContainer" unique_id=2011098500]
 layout_mode = 2
-theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
-text = ""
+theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 autowrap_mode = 2

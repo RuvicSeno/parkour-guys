@@ -24,6 +24,7 @@ const PLAYER_COLORS: Array[Color] = [
 @onready var visual: Node3D = $CollisionShape3D/Visual
 @onready var stick_man: Node3D = $CollisionShape3D/Visual/StickMan
 @onready var name_label: Label3D = $NameLabel3D
+@onready var chat_bubbles: Node3D = $ChatBubbles
 @onready var jump_sfx: AudioStreamPlayer3D = $JumpSFX
 @onready var running_sfx: AudioStreamPlayer3D = $RunningSFX
 
@@ -41,6 +42,11 @@ func _ready() -> void:
 	_setup_animations()
 	_setup_visuals()
 	_apply_animation(anim_state)
+
+	# Name may arrive after this node spawns (e.g. late-join race), so
+	# refresh the label whenever the registry updates.
+	if not Network.player_names_updated.is_connected(_setup_visuals):
+		Network.player_names_updated.connect(_setup_visuals)
 	
 	if not is_multiplayer_authority():
 		set_physics_process(false)
@@ -130,16 +136,21 @@ func _setup_visuals() -> void:
 				mesh_node.material_override = mat
 
 	if name_label:
+		var display_name: String = Network.player_names.get(auth_id, "Player %d" % auth_id)
 		if auth_id == multiplayer.get_unique_id():
-			name_label.text = "YOU (P%d)" % auth_id
+			name_label.text = "YOU (%s)" % display_name
 			name_label.modulate = Color(0.3, 1.0, 0.5)
 		else:
-			name_label.text = "Player %d" % auth_id
+			name_label.text = display_name
 			name_label.modulate = Color(1.0, 1.0, 1.0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	var world_node = get_tree().current_scene
 	var match_active: bool = world_node and "game_started" in world_node and world_node.game_started
+
+	var chat_ui = world_node.get_node_or_null("ChatUI/Control") if world_node else null
+	if chat_ui and chat_ui.has_method("is_chat_focused") and chat_ui.is_chat_focused():
+		return
 
 	# During gameplay: ESC releases cursor, click re-captures it
 	if match_active:
@@ -165,13 +176,13 @@ func _physics_process(delta: float) -> void:
 	velocity.y -= gravity * delta
 
 	var world_node = get_tree().current_scene
-	if world_node and "game_started" in world_node and not world_node.game_started:
+	var chat_ui = world_node.get_node_or_null("ChatUI/Control") if world_node else null
+	var chat_focused: bool = chat_ui and chat_ui.has_method("is_chat_focused") and chat_ui.is_chat_focused()
+
+	if (world_node and "game_started" in world_node and not world_node.game_started) or chat_focused:
 		velocity.x = 0.0
 		velocity.z = 0.0
 		move_and_slide()
-		# Force idle during pre-match — do NOT call _update_animation_and_audio()
-		# because is_on_floor() can flicker false when peers connect, which
-		# sets anim_state to "falling_idle" and replicates it to everyone.
 		anim_state = "idle"
 		return
 
@@ -246,3 +257,57 @@ func _apply_animation(target_anim: String) -> void:
 func set_checkpoint(new_pos: Vector3) -> void:
 	if is_multiplayer_authority():
 		respawn_position = new_pos
+
+const SPEECH_BUBBLE_SCENE: PackedScene = preload("res://scenes/ui/SpeechBubble3D.tscn")
+var active_bubbles: Array[Node3D] = []
+
+# --- FLOATING CHAT BUBBLES ---
+
+func add_chat_bubble(message: String) -> void:
+	if chat_bubbles == null:
+		return
+
+	# Stack up to 3: drop the oldest bubble if limit reached
+	if active_bubbles.size() >= 3:
+		var oldest: Node3D = active_bubbles.pop_front()
+		if is_instance_valid(oldest):
+			oldest.queue_free()
+
+	var bubble: Node3D = SPEECH_BUBBLE_SCENE.instantiate()
+	if bubble.has_method("set_text"):
+		bubble.set_text(message)
+
+	chat_bubbles.add_child(bubble)
+	active_bubbles.append(bubble)
+
+	_update_bubble_positions()
+
+	# Lifespan: 5s total (stay visible 4.5s, fade out over 0.5s)
+	var timer := get_tree().create_timer(4.5)
+	timer.timeout.connect(func():
+		if is_instance_valid(bubble):
+			if bubble.has_method("fade_out_and_free"):
+				_remove_bubble_from_stack(bubble)
+				bubble.fade_out_and_free(0.5)
+			else:
+				_remove_bubble_from_stack(bubble)
+				bubble.queue_free()
+	)
+
+func _remove_bubble_from_stack(bubble: Node3D) -> void:
+	if bubble in active_bubbles:
+		active_bubbles.erase(bubble)
+		_update_bubble_positions()
+
+func _update_bubble_positions() -> void:
+	var total: int = active_bubbles.size()
+	var current_y: float = 0.0
+	for i in range(total - 1, -1, -1):
+		var bubble: Node3D = active_bubbles[i]
+		if is_instance_valid(bubble):
+			var pos_tween := create_tween()
+			pos_tween.tween_property(bubble, "position:y", current_y, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			var bubble_height: float = 0.3
+			if bubble.has_method("get_bubble_height_3d"):
+				bubble_height = bubble.get_bubble_height_3d()
+			current_y += bubble_height + 0.08

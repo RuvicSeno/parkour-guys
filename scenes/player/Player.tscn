@@ -25,6 +25,7 @@ properties/4/spawn = true
 properties/4/replication_mode = 2
 
 [node name="CharacterBody3D" type="CharacterBody3D" unique_id=10664612]
+collision_layer = 2
 script = ExtResource("1_wr5hl")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=325863496]
@@ -48,6 +49,9 @@ billboard = 1
 double_sided = false
 text = "Player"
 outline_size = 8
+
+[node name="ChatBubbles" type="Node3D" parent="." unique_id=860112585]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
 
 [node name="CameraPivot" type="Node3D" parent="." unique_id=1705266538]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)

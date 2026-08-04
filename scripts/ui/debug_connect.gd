@@ -3,12 +3,14 @@ extends Control
 ## Lobby UI — lets the player host or join a LAN game.
 ## Replaces the old DebugConnect placeholder (Step 7).
 
+@onready var name_line_edit: LineEdit = $VBoxContainer/NameLineEdit
 @onready var ip_line_edit: LineEdit = $VBoxContainer/IPLineEdit
 @onready var host_button: Button = $VBoxContainer/HostButton
 @onready var join_button: Button = $VBoxContainer/JoinButton
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 
 func _ready() -> void:
+	name_line_edit.placeholder_text = "Enter your name"
 	host_button.pressed.connect(_on_host_pressed)
 	join_button.pressed.connect(_on_join_pressed)
 
@@ -18,6 +20,7 @@ func _ready() -> void:
 
 func _on_host_pressed() -> void:
 	_set_buttons_enabled(false)
+	Network.set_local_player_name(name_line_edit.text)
 	var error: Error = Network.host_game()
 	if error != OK:
 		status_label.text = "Failed to start server (error %d)" % error
@@ -33,6 +36,7 @@ func _on_join_pressed() -> void:
 		ip = "127.0.0.1"
 	_set_buttons_enabled(false)
 	status_label.text = "Connecting to %s..." % ip
+	Network.set_local_player_name(name_line_edit.text)
 	var error: Error = Network.join_game(ip)
 	if error != OK:
 		status_label.text = "Failed to connect (error %d)" % error
