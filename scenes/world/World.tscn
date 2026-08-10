@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://c0readyui123" path="res://scenes/ui/ReadyUI.tscn" id="6_rdy"]
 [ext_resource type="PackedScene" uid="uid://ct3fnulqsv83" path="res://scenes/ui/LeaderboardUI.tscn" id="7_ldb"]
 [ext_resource type="PackedScene" uid="uid://chatui123456" path="res://scenes/ui/ChatUI.tscn" id="8_chat"]
+[ext_resource type="PackedScene" uid="uid://cxab3f8k8e0b0" path="res://scenes/ui/ReconnectUI.tscn" id="9_reconn"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1wvas"]
 sky_top_color = Color(0.45, 0.72, 0.98, 1)
@@ -612,6 +613,8 @@ material = SubResource("StandardMaterial3D_bb7h1")
 [node name="LeaderboardUI" parent="." unique_id=1463819913 instance=ExtResource("7_ldb")]
 
 [node name="ChatUI" parent="." unique_id=1463819914 instance=ExtResource("8_chat")]
+
+[node name="ReconnectUI" parent="." instance=ExtResource("9_reconn")]
 
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="." unique_id=535798540]
 stream = ExtResource("5_bgm")

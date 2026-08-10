@@ -106,3 +106,17 @@ func add_message(sender_id: int, sender_name: String, message: String) -> void:
 	# Format with BBCode: [color=#hex][b]Name[/b][/color]: message
 	var formatted_msg: String = "[color=#%s][b]%s[/b][/color]: %s\n" % [hex_color, sender_name.xml_escape(), message.xml_escape()]
 	rich_text_label.append_text(formatted_msg)
+
+## Displays a system message (not from a player) in the chat log.
+## Used for admin actions, join/leave notifications, reconnection info, etc.
+func add_system_message(message: String) -> void:
+	if rich_text_label == null:
+		return
+	var formatted: String = "[color=#aaaaaa][i]%s[/i][/color]\n" % message.xml_escape()
+	rich_text_label.append_text(formatted)
+
+## Clears all messages from the chat display. Called by the /clear admin command.
+func clear_messages() -> void:
+	if rich_text_label == null:
+		return
+	rich_text_label.clear()

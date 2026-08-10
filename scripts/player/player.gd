@@ -257,6 +257,16 @@ func _apply_animation(target_anim: String) -> void:
 func set_checkpoint(new_pos: Vector3) -> void:
 	if is_multiplayer_authority():
 		respawn_position = new_pos
+		# Notify the server of our new checkpoint so it can save it
+		# for potential reconnection state restoration.
+		if not multiplayer.is_server():
+			_sync_checkpoint.rpc_id(1, new_pos)
+
+## Client -> Server. Keeps the server's copy of respawn_position up to date.
+@rpc("any_peer", "reliable")
+func _sync_checkpoint(pos: Vector3) -> void:
+	if multiplayer.is_server():
+		respawn_position = pos
 
 const SPEECH_BUBBLE_SCENE: PackedScene = preload("res://scenes/ui/SpeechBubble3D.tscn")
 var active_bubbles: Array[Node3D] = []
