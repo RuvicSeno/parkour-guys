@@ -11,6 +11,7 @@ signal connection_failed_to_server
 signal disconnected_from_server
 signal server_created
 signal player_names_updated
+signal simulated_latency_changed(ms: int)
 
 ## Reconnection signals — UI subscribes to these to show reconnection overlay.
 signal reconnecting(attempt: int, max_attempts: int)
@@ -138,6 +139,8 @@ func _on_peer_connected(id: int) -> void:
 	# current name map. Harmless no-op if nothing has changed.
 	if multiplayer.is_server():
 		_broadcast_names()
+		if simulated_latency_ms > 0:
+			_sync_simulated_latency.rpc_id(id, simulated_latency_ms)
 
 func _on_peer_disconnected(id: int) -> void:
 	print("Peer disconnected: %d" % id)
@@ -274,3 +277,67 @@ func _check_reconnection(new_peer_id: int) -> bool:
 		# Expired — discard
 		disconnected_players.erase(username)
 		return false
+
+# --- ARTIFICIAL LATENCY SIMULATION ---
+# Allows admins to simulate network latency for testing in runtime/release builds.
+# Presets: 0ms (off), 50ms, 150ms, 300ms.
+var simulated_latency_ms: int = 0
+
+## Sets the artificial latency (ms) and broadcasts it to all connected peers if called on the server.
+func set_simulated_latency(ms: int) -> void:
+	ms = maxi(0, ms)
+	simulated_latency_ms = ms
+	simulated_latency_changed.emit(ms)
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		_sync_simulated_latency.rpc(ms)
+
+@rpc("authority", "call_local", "reliable")
+func _sync_simulated_latency(ms: int) -> void:
+	simulated_latency_ms = ms
+	simulated_latency_changed.emit(ms)
+
+# --- PLAYER IDENTIFIER LOOKUP ---
+## Finds a peer ID given a string identifier.
+## Handles:
+## - Direct numeric ID: "2" or "#2"
+## - Full display names with spaces: "Player 2", "John Doe"
+## - Quoted strings: "\"Player 2\""
+## - Case-insensitive matching
+## Returns -1 if no matching connected peer is found.
+func find_peer_by_identifier(target: String) -> int:
+	var clean := target.strip_edges()
+	if clean.is_empty():
+		return -1
+
+	# Strip outer quotes if present
+	if (clean.begins_with("\"") and clean.ends_with("\"")) or (clean.begins_with("'") and clean.ends_with("'")):
+		if clean.length() >= 2:
+			clean = clean.substr(1, clean.length() - 2).strip_edges()
+
+	# 1. Check if numeric peer ID (e.g. "2" or "#2")
+	var id_candidate := clean
+	if id_candidate.begins_with("#"):
+		id_candidate = id_candidate.substr(1).strip_edges()
+	if id_candidate.is_valid_int():
+		var pid := id_candidate.to_int()
+		if pid == 1 or player_names.has(pid) or (multiplayer.multiplayer_peer != null and pid in multiplayer.get_peers()):
+			return pid
+
+	# 2. Check exact case-insensitive match against player_names
+	for pid in player_names:
+		if player_names[pid].to_lower() == clean.to_lower():
+			return pid
+
+	# 3. Check spaceless comparison (e.g. "Player2" matches "Player 2")
+	var clean_spaceless := clean.replace(" ", "").to_lower()
+	for pid in player_names:
+		var name_spaceless: String = player_names[pid].replace(" ", "").to_lower()
+		if name_spaceless == clean_spaceless:
+			return pid
+
+	# 4. Check "Player <pid>" default format match
+	for pid in player_names:
+		if clean_spaceless == ("player" + str(pid)):
+			return pid
+
+	return -1

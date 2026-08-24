@@ -10,7 +10,11 @@ var game_started: bool = false
 var ready_peers: Array[int] = []
 var finished_players: Array[int] = []
 
-# --- CHAT SYSTEM STATE ---
+# --- CHAT & DESYNC DETECTION STATE ---
+signal desync_detected(peer_id: int, drift: float, tick: int)
+
+const DESYNC_TOLERANCE_METERS: float = 2.5
+var desync_stats: Dictionary = {}
 var chat_filter: ChatFilter = ChatFilter.new()
 var muted_peers: Array[int] = []
 
@@ -68,6 +72,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		existing.queue_free()
 	ready_peers.erase(peer_id)
 	muted_peers.erase(peer_id)
+	desync_stats.erase(peer_id)
 
 	if not game_started:
 		_update_ready_ui.rpc(ready_peers.size(), _get_total_player_count())
@@ -179,7 +184,13 @@ func send_chat_message(raw_text: String) -> void:
 	if multiplayer.is_server():
 		_process_chat_message(multiplayer.get_unique_id(), raw_text)
 	else:
-		_request_chat_message.rpc_id(1, raw_text)
+		if Network.simulated_latency_ms > 0:
+			get_tree().create_timer(Network.simulated_latency_ms / 1000.0).timeout.connect(func():
+				if multiplayer.multiplayer_peer != null:
+					_request_chat_message.rpc_id(1, raw_text)
+			)
+		else:
+			_request_chat_message.rpc_id(1, raw_text)
 
 @rpc("any_peer", "reliable")
 func _request_chat_message(raw_text: String) -> void:
@@ -220,7 +231,12 @@ func _process_chat_message(sender_id: int, raw_text: String) -> void:
 
 @rpc("authority", "call_local", "reliable")
 func _broadcast_chat_message(sender_id: int, sender_name: String, message: String) -> void:
-	chat_message_received.emit(sender_id, sender_name, message)
+	if not multiplayer.is_server() and Network.simulated_latency_ms > 0:
+		get_tree().create_timer(Network.simulated_latency_ms / 1000.0).timeout.connect(func():
+			chat_message_received.emit(sender_id, sender_name, message)
+		)
+	else:
+		chat_message_received.emit(sender_id, sender_name, message)
 
 func _on_chat_message_received(sender_id: int, sender_name: String, message: String) -> void:
 	var chat_ui = get_node_or_null("ChatUI/Control")
@@ -268,8 +284,21 @@ func _on_system_message_received(message: String) -> void:
 # /ping is available to everyone. All others require admin permission.
 # =======================================================================
 
+func _parse_command_tokens(command_text: String) -> PackedStringArray:
+	var tokens: PackedStringArray = []
+	var regex := RegEx.new()
+	# Matches "double-quoted", 'single-quoted', or unquoted words
+	regex.compile("\"([^\"]*)\"|'([^']*)'|(\\S+)")
+	for result in regex.search_all(command_text):
+		for i in range(1, 4):
+			var match_str: String = result.get_string(i)
+			if match_str != "":
+				tokens.append(match_str)
+				break
+	return tokens
+
 func _handle_command(sender_id: int, command_text: String) -> void:
-	var parts: PackedStringArray = command_text.split(" ", false)
+	var parts: PackedStringArray = _parse_command_tokens(command_text)
 	if parts.size() == 0:
 		return
 	var cmd: String = parts[0].to_lower()
@@ -289,15 +318,32 @@ func _handle_command(sender_id: int, command_text: String) -> void:
 			_cmd_unmute(sender_id, parts)
 		"/kill":
 			_cmd_kill(sender_id, parts)
+		"/latency", "/lag", "/simlag":
+			_cmd_latency(sender_id, parts)
+		"/desync", "/syncstatus", "/checksync":
+			_cmd_desync(sender_id, parts)
+		"/resync":
+			_cmd_resync(sender_id, parts)
 		_:
 			_server_send_system_message(sender_id, "Unknown command: %s" % cmd)
 
-## Returns -1 if no player with that name is currently connected.
-func _find_peer_by_name(target_name: String) -> int:
-	for pid in Network.player_names:
-		if Network.player_names[pid].to_lower() == target_name.to_lower():
-			return pid
+## Resolves a target peer identifier from command tokens.
+## Handles single tokens, multi-word unquoted names (e.g. "Player 2"), and numeric IDs.
+func _extract_target_id(parts: PackedStringArray, start_index: int = 1) -> int:
+	if parts.size() <= start_index:
+		return -1
+	var single_target: String = parts[start_index]
+	var pid: int = Network.find_peer_by_identifier(single_target)
+	if pid != -1:
+		return pid
+	if parts.size() > start_index + 1:
+		var full_target: String = " ".join(parts.slice(start_index))
+		return Network.find_peer_by_identifier(full_target)
 	return -1
+
+## Returns -1 if no player with that identifier is currently connected.
+func _find_peer_by_name(target_name: String) -> int:
+	return Network.find_peer_by_identifier(target_name)
 
 ## Helper that checks admin permission and sends an error message if denied.
 ## Returns true if the sender IS an admin.
@@ -308,40 +354,67 @@ func _require_admin(sender_id: int) -> bool:
 	return false
 
 # --- /ping ---
-# Available to ALL players. Uses ENet's round-trip-time statistic.
-# For the host, ping is always 0ms since they ARE the server.
+# Available to ALL players. Uses ENet's round-trip-time statistic and includes simulated latency.
 func _cmd_ping(sender_id: int) -> void:
+	var base_rtt: float = 0.0
+	var found_rtt: bool = false
+	if sender_id != 1:
+		var enet_peer = multiplayer.multiplayer_peer as ENetMultiplayerPeer
+		if enet_peer:
+			var packet_peer: ENetPacketPeer = enet_peer.get_peer(sender_id)
+			if packet_peer:
+				base_rtt = packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)
+				found_rtt = true
+
+	var sim_lat: int = Network.simulated_latency_ms
+	var total_ping: int = int(base_rtt + (sim_lat * 2))
+
 	if sender_id == 1:
-		_server_send_system_message(sender_id, "Your ping: 0 ms (you are the host)")
+		if sim_lat > 0:
+			_server_send_system_message(sender_id, "Your ping: 0 ms (Host) | Global simulated latency: %d ms (%d ms RTT)" % [sim_lat, sim_lat * 2])
+		else:
+			_server_send_system_message(sender_id, "Your ping: 0 ms (you are the host)")
 		return
-	var enet_peer = multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if enet_peer:
-		var packet_peer: ENetPacketPeer = enet_peer.get_peer(sender_id)
-		if packet_peer:
-			var rtt: float = packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)
-			_server_send_system_message(sender_id, "Your ping: %d ms" % int(rtt))
-			return
+
+	if found_rtt or sim_lat > 0:
+		if sim_lat > 0:
+			_server_send_system_message(sender_id, "Your ping: %d ms (%d ms real + %d ms simulated RTT)" % [total_ping, int(base_rtt), sim_lat * 2])
+		else:
+			_server_send_system_message(sender_id, "Your ping: %d ms" % total_ping)
+		return
+
 	_server_send_system_message(sender_id, "Could not determine ping.")
 
-# --- /nick <current_name> <new_name> ---
+# --- /nick <current_name|id> <new_name> ---
 # Admin only. Changes another player's display name.
 func _cmd_nick(sender_id: int, parts: PackedStringArray) -> void:
 	if not _require_admin(sender_id):
 		return
 	if parts.size() < 3:
-		_server_send_system_message(sender_id, "Usage: /nick <current_name> <new_name>")
+		_server_send_system_message(sender_id, "Usage: /nick <current_name|player_id> <new_name>")
 		return
 
-	var target_name: String = parts[1]
-	var new_name: String = parts[2].strip_edges().left(Network.MAX_NAME_LENGTH)
+	var target_id: int = -1
+	var new_name: String = ""
 
+	if parts.size() == 3:
+		target_id = Network.find_peer_by_identifier(parts[1])
+		new_name = parts[2].strip_edges().left(Network.MAX_NAME_LENGTH)
+	else:
+		# If unquoted multi-word arguments: test possible split points
+		for split_idx in range(parts.size() - 1, 0, -1):
+			var target_candidate: String = " ".join(parts.slice(1, split_idx))
+			var pid: int = Network.find_peer_by_identifier(target_candidate)
+			if pid != -1:
+				target_id = pid
+				new_name = " ".join(parts.slice(split_idx)).strip_edges().left(Network.MAX_NAME_LENGTH)
+				break
+
+	if target_id == -1:
+		_server_send_system_message(sender_id, "Player '%s' not found." % parts[1])
+		return
 	if new_name.is_empty():
 		_server_send_system_message(sender_id, "New name cannot be empty.")
-		return
-
-	var target_id: int = _find_peer_by_name(target_name)
-	if target_id == -1:
-		_server_send_system_message(sender_id, "Player '%s' not found." % target_name)
 		return
 
 	# Check for duplicate names
@@ -350,7 +423,7 @@ func _cmd_nick(sender_id: int, parts: PackedStringArray) -> void:
 			_server_send_system_message(sender_id, "Name '%s' is already taken." % new_name)
 			return
 
-	var old_name: String = Network.player_names.get(target_id, target_name)
+	var old_name: String = Network.player_names.get(target_id, "Player %d" % target_id)
 	Network.player_names[target_id] = new_name
 	Network._broadcast_names()
 	_broadcast_system_message.rpc("%s was renamed to %s by admin." % [old_name, new_name])
@@ -368,19 +441,18 @@ func _clear_chat() -> void:
 	if chat_ui and chat_ui.has_method("clear_messages"):
 		chat_ui.clear_messages()
 
-# --- /kick <username> ---
+# --- /kick <username|player_id> ---
 # Admin only. Disconnects a player from the session.
 func _cmd_kick(sender_id: int, parts: PackedStringArray) -> void:
 	if not _require_admin(sender_id):
 		return
 	if parts.size() < 2:
-		_server_send_system_message(sender_id, "Usage: /kick <username>")
+		_server_send_system_message(sender_id, "Usage: /kick <username|player_id>")
 		return
 
-	var target_name: String = parts[1]
-	var target_id: int = _find_peer_by_name(target_name)
+	var target_id: int = _extract_target_id(parts, 1)
 	if target_id == -1:
-		_server_send_system_message(sender_id, "Player '%s' not found." % target_name)
+		_server_send_system_message(sender_id, "Player '%s' not found." % parts[1])
 		return
 	if target_id == sender_id:
 		_server_send_system_message(sender_id, "You cannot kick yourself.")
@@ -403,62 +475,59 @@ func _cmd_kick(sender_id: int, parts: PackedStringArray) -> void:
 		Network.kicked_names.append(kicked_name.to_lower())
 	multiplayer.multiplayer_peer.disconnect_peer(target_id)
 
-# --- /mute <username> ---
+# --- /mute <username|player_id> ---
 # Admin only. Server-side mute — the server silently drops their messages.
 func _cmd_mute(sender_id: int, parts: PackedStringArray) -> void:
 	if not _require_admin(sender_id):
 		return
 	if parts.size() < 2:
-		_server_send_system_message(sender_id, "Usage: /mute <username>")
+		_server_send_system_message(sender_id, "Usage: /mute <username|player_id>")
 		return
 
-	var target_name: String = parts[1]
-	var target_id: int = _find_peer_by_name(target_name)
+	var target_id: int = _extract_target_id(parts, 1)
 	if target_id == -1:
-		_server_send_system_message(sender_id, "Player '%s' not found." % target_name)
+		_server_send_system_message(sender_id, "Player '%s' not found." % parts[1])
 		return
 	if target_id in muted_peers:
-		_server_send_system_message(sender_id, "%s is already muted." % target_name)
+		_server_send_system_message(sender_id, "%s is already muted." % Network.player_names.get(target_id, "Player %d" % target_id))
 		return
 
 	muted_peers.append(target_id)
-	_broadcast_system_message.rpc("%s has been muted by an admin." % Network.player_names.get(target_id, target_name))
+	_broadcast_system_message.rpc("%s has been muted by an admin." % Network.player_names.get(target_id, "Player %d" % target_id))
 
-# --- /unmute <username> ---
+# --- /unmute <username|player_id> ---
 # Admin only. Restores a muted player's ability to chat.
 func _cmd_unmute(sender_id: int, parts: PackedStringArray) -> void:
 	if not _require_admin(sender_id):
 		return
 	if parts.size() < 2:
-		_server_send_system_message(sender_id, "Usage: /unmute <username>")
+		_server_send_system_message(sender_id, "Usage: /unmute <username|player_id>")
 		return
 
-	var target_name: String = parts[1]
-	var target_id: int = _find_peer_by_name(target_name)
+	var target_id: int = _extract_target_id(parts, 1)
 	if target_id == -1:
-		_server_send_system_message(sender_id, "Player '%s' not found." % target_name)
+		_server_send_system_message(sender_id, "Player '%s' not found." % parts[1])
 		return
 	if not target_id in muted_peers:
-		_server_send_system_message(sender_id, "%s is not muted." % target_name)
+		_server_send_system_message(sender_id, "%s is not muted." % Network.player_names.get(target_id, "Player %d" % target_id))
 		return
 
 	muted_peers.erase(target_id)
-	_broadcast_system_message.rpc("%s has been unmuted by an admin." % Network.player_names.get(target_id, target_name))
+	_broadcast_system_message.rpc("%s has been unmuted by an admin." % Network.player_names.get(target_id, "Player %d" % target_id))
 
-# --- /kill <username> ---
+# --- /kill <username|player_id> ---
 # Admin only. Respawns a player at their last checkpoint.
 # The RPC goes to all clients; only the authority for that player executes.
 func _cmd_kill(sender_id: int, parts: PackedStringArray) -> void:
 	if not _require_admin(sender_id):
 		return
 	if parts.size() < 2:
-		_server_send_system_message(sender_id, "Usage: /kill <username>")
+		_server_send_system_message(sender_id, "Usage: /kill <username|player_id>")
 		return
 
-	var target_name: String = parts[1]
-	var target_id: int = _find_peer_by_name(target_name)
+	var target_id: int = _extract_target_id(parts, 1)
 	if target_id == -1:
-		_server_send_system_message(sender_id, "Player '%s' not found." % target_name)
+		_server_send_system_message(sender_id, "Player '%s' not found." % parts[1])
 		return
 
 	var killed_name: String = Network.player_names.get(target_id, "Player %d" % target_id)
@@ -474,6 +543,157 @@ func _admin_respawn_player(target_peer_id: int) -> void:
 		if p_node.is_multiplayer_authority():
 			p_node.velocity = Vector3.ZERO
 			p_node.global_position = p_node.respawn_position
+
+# --- /latency <0|50|150|300|ms|off> ---
+# Admin only. Sets simulated artificial network latency globally for testing.
+func _cmd_latency(sender_id: int, parts: PackedStringArray) -> void:
+	if not _require_admin(sender_id):
+		return
+
+	if parts.size() < 2:
+		var current_ms: int = Network.simulated_latency_ms
+		_server_send_system_message(sender_id, "Simulated latency: %d ms (Presets: 0ms/off, 50ms, 150ms, 300ms). Usage: /latency <ms>" % current_ms)
+		return
+
+	var arg: String = parts[1].to_lower().strip_edges()
+	var latency_ms: int = 0
+	if arg == "off":
+		latency_ms = 0
+	elif arg.is_valid_int():
+		latency_ms = maxi(0, arg.to_int())
+	else:
+		_server_send_system_message(sender_id, "Invalid latency '%s'. Presets: 0ms, 50ms, 150ms, 300ms." % arg)
+		return
+
+	Network.set_simulated_latency(latency_ms)
+	if latency_ms == 0:
+		_broadcast_system_message.rpc("Admin disabled artificial network latency (0 ms).")
+	else:
+		_broadcast_system_message.rpc("Admin set artificial network latency to %d ms (Presets: 0ms, 50ms, 150ms, 300ms)." % latency_ms)
+
+# --- /desync [player_name|id] ---
+# Admin only. Displays desync detection statistics for all players or a specific player.
+func _cmd_desync(sender_id: int, parts: PackedStringArray) -> void:
+	if not _require_admin(sender_id):
+		return
+
+	if parts.size() >= 2:
+		var target_id: int = _extract_target_id(parts, 1)
+		if target_id == -1:
+			_server_send_system_message(sender_id, "Player '%s' not found." % parts[1])
+			return
+		_show_player_desync_stats(sender_id, target_id)
+	else:
+		_show_all_desync_stats(sender_id)
+
+func _show_all_desync_stats(admin_id: int) -> void:
+	var msg: String = "=== DESYNC DETECTION STATUS ===\n"
+	if Network.player_names.is_empty():
+		msg += "No players connected."
+	else:
+		for pid in Network.player_names:
+			var p_name: String = Network.player_names[pid]
+			var stats: Dictionary = desync_stats.get(pid, {})
+			var status: String = stats.get("status", "SYNCED")
+			var desync_count: int = stats.get("desync_count", 0)
+			var total_checks: int = stats.get("total_checks", 0)
+			var last_drift: float = stats.get("last_drift", 0.0)
+			var max_drift: float = stats.get("max_drift", 0.0)
+
+			msg += "[%s] %s (ID %d): %s | Desyncs: %d/%d | Last Drift: %.2fm | Max Drift: %.2fm\n" % [
+				status, p_name, pid, "OK" if desync_count == 0 else "WARNING", desync_count, total_checks, last_drift, max_drift
+			]
+	_server_send_system_message(admin_id, msg.strip_edges())
+
+func _show_player_desync_stats(admin_id: int, target_id: int) -> void:
+	var p_name: String = Network.player_names.get(target_id, "Player %d" % target_id)
+	var stats: Dictionary = desync_stats.get(target_id, {})
+	var status: String = stats.get("status", "SYNCED")
+	var desync_count: int = stats.get("desync_count", 0)
+	var total_checks: int = stats.get("total_checks", 0)
+	var last_drift: float = stats.get("last_drift", 0.0)
+	var max_drift: float = stats.get("max_drift", 0.0)
+	var last_tick: int = stats.get("last_check_tick", 0)
+	var cur_tol: float = DESYNC_TOLERANCE_METERS + (Network.simulated_latency_ms / 1000.0 * 6.0)
+	var msg: String = "=== SYNC STATS: %s (ID %d) ===\nStatus: %s\nDesync Count: %d / %d checks\nLast Drift: %.3fm\nMax Drift: %.3fm\nLast Verified Tick: %d\nTolerance: %.2fm" % [
+		p_name, target_id, status, desync_count, total_checks, last_drift, max_drift, last_tick, cur_tol
+	]
+	_server_send_system_message(admin_id, msg)
+
+# --- /resync <player_name|id> ---
+# Admin only. Forces an authoritative state reconciliation for a desynced player.
+func _cmd_resync(sender_id: int, parts: PackedStringArray) -> void:
+	if not _require_admin(sender_id):
+		return
+	if parts.size() < 2:
+		_server_send_system_message(sender_id, "Usage: /resync <player_name|player_id>")
+		return
+
+	var target_id: int = _extract_target_id(parts, 1)
+	if target_id == -1:
+		_server_send_system_message(sender_id, "Player '%s' not found." % parts[1])
+		return
+
+	var p_node = players_root.get_node_or_null(str(target_id))
+	if p_node and p_node is CharacterBody3D:
+		if p_node.has_method("_force_reconcile_state"):
+			p_node._force_reconcile_state.rpc_id(target_id, p_node.global_position, p_node.velocity)
+		if desync_stats.has(target_id):
+			desync_stats[target_id]["desync_count"] = 0
+			desync_stats[target_id]["status"] = "SYNCED"
+
+		var target_name: String = Network.player_names.get(target_id, "Player %d" % target_id)
+		_server_send_system_message(sender_id, "Forced state resync for %s (Peer %d)." % [target_name, target_id])
+		_broadcast_system_message.rpc("%s was resynchronized to server state by admin." % target_name)
+	else:
+		_server_send_system_message(sender_id, "Player node not found.")
+
+# =======================================================================
+# DESYNC DETECTION VERIFICATION (SERVER-SIDE)
+# =======================================================================
+
+func verify_desync_report(peer_id: int, tick: int, client_hash: int, client_pos: Vector3, _client_vel: Vector3) -> void:
+	if not multiplayer.is_server():
+		return
+
+	if not desync_stats.has(peer_id):
+		desync_stats[peer_id] = {
+			"total_checks": 0,
+			"desync_count": 0,
+			"max_drift": 0.0,
+			"last_drift": 0.0,
+			"last_check_tick": 0,
+			"last_check_time": 0.0,
+			"status": "SYNCED"
+		}
+
+	var stats: Dictionary = desync_stats[peer_id]
+	stats["total_checks"] += 1
+	stats["last_check_tick"] = tick
+	stats["last_check_time"] = Time.get_ticks_msec() / 1000.0
+
+	var p_node = players_root.get_node_or_null(str(peer_id))
+	if p_node and p_node is CharacterBody3D:
+		var drift: float = p_node.global_position.distance_to(client_pos)
+		stats["last_drift"] = drift
+		stats["max_drift"] = maxf(stats["max_drift"], drift)
+
+		var server_snapshot: Dictionary = p_node.get_state_snapshot(tick)
+		var server_hash: int = p_node.compute_state_hash(server_snapshot)
+
+		var max_allowed_drift: float = DESYNC_TOLERANCE_METERS + (Network.simulated_latency_ms / 1000.0 * 6.0)
+
+		# Check if drift exceeds allowable physics/network window or severe state divergence occurs
+		if drift > max_allowed_drift or (client_hash != server_hash and drift > 1.2):
+			stats["desync_count"] += 1
+			stats["status"] = "DESYNC WARNING"
+			var player_name: String = Network.player_names.get(peer_id, "Player %d" % peer_id)
+			print("[Desync Detection] Desync detected for %s (Peer %d) at tick %d! Drift: %.2fm (Tolerance: %.2fm), Client Hash: %d, Server Hash: %d" % [
+				player_name, peer_id, tick, drift, max_allowed_drift, client_hash, server_hash
+			])
+			desync_detected.emit(peer_id, drift, tick)
+		else:
+			stats["status"] = "SYNCED"
 
 # =======================================================================
 # RECONNECTION (SERVER-SIDE STATE RESTORATION)

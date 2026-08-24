@@ -1,8 +1,5 @@
 extends Control
 
-## Lobby UI — lets the player host or join a LAN game.
-## Replaces the old DebugConnect placeholder (Step 7).
-
 @onready var name_line_edit: LineEdit = $VBoxContainer/NameLineEdit
 @onready var ip_line_edit: LineEdit = $VBoxContainer/IPLineEdit
 @onready var host_button: Button = $VBoxContainer/HostButton
@@ -56,5 +53,3 @@ func _set_buttons_enabled(enabled: bool) -> void:
 
 func _dismiss() -> void:
 	hide()
-	# Keep mouse visible so the player can click the Ready button.
-	# Mouse will be captured when the match countdown finishes.

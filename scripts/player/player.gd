@@ -32,6 +32,36 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 var respawn_position: Vector3
 var animation_player: AnimationPlayer
 
+# Desync detection state & history
+var physics_tick: int = 0
+var state_history: Array[Dictionary] = []
+const MAX_STATE_HISTORY: int = 120
+const DESYNC_CHECK_INTERVAL: int = 10
+
+# Synchronized transform properties (replicated via MultiplayerSynchronizer)
+var sync_position: Vector3 = Vector3.ZERO: set = _set_sync_position
+var sync_velocity: Vector3 = Vector3.ZERO
+var sync_rotation: Vector3 = Vector3.ZERO: set = _set_sync_rotation
+
+# Latency simulation playback buffer for remote instances
+var _latency_buffer: Array[Dictionary] = []
+const MAX_LATENCY_BUFFER_SIZE: int = 180
+
+func _set_sync_position(val: Vector3) -> void:
+	sync_position = val
+	if not is_multiplayer_authority():
+		_latency_buffer.append({
+			"time": Time.get_ticks_msec() / 1000.0,
+			"pos": val,
+			"rot": sync_rotation,
+			"vel": sync_velocity
+		})
+		if _latency_buffer.size() > MAX_LATENCY_BUFFER_SIZE:
+			_latency_buffer.pop_front()
+
+func _set_sync_rotation(val: Vector3) -> void:
+	sync_rotation = val
+
 # NEW: replicated animation state. Every peer reads this and plays it locally.
 # Add ".:anim_state" to the MultiplayerSynchronizer's replication config
 # (spawn: true, mode: sync/on change) alongside position/velocity.
@@ -39,6 +69,10 @@ var anim_state: String = "idle": set = _set_anim_state
 
 func _ready() -> void:
 	respawn_position = global_position
+	sync_position = global_position
+	if visual:
+		sync_rotation = visual.rotation
+
 	_setup_animations()
 	_setup_visuals()
 	_apply_animation(anim_state)
@@ -51,9 +85,11 @@ func _ready() -> void:
 	if not is_multiplayer_authority():
 		set_physics_process(false)
 		set_process_unhandled_input(false)
+		set_process(true)
 		camera.current = false
 		return
 
+	set_process(false)
 	camera.current = true
 
 func _setup_animations() -> void:
@@ -172,6 +208,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 
 func _physics_process(delta: float) -> void:
+	physics_tick += 1
+
 	# Always apply gravity first so move_and_slide maintains solid floor contact
 	velocity.y -= gravity * delta
 
@@ -184,6 +222,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = 0.0
 		move_and_slide()
 		anim_state = "idle"
+		_record_state_and_report()
 		return
 
 	var jumped: bool = false
@@ -217,10 +256,75 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 	_update_animation_and_audio(input_dir.length_squared() > 0.0, jumped)
+	
+	sync_position = global_position
+	sync_velocity = velocity
+	if visual:
+		sync_rotation = visual.rotation
+
+	_record_state_and_report()
+
 # Void Area
 	if global_position.y < -10.0:
 		velocity = Vector3.ZERO
 		global_position = respawn_position
+		sync_position = global_position
+
+func _process(_delta: float) -> void:
+	if is_multiplayer_authority():
+		return
+
+	# If no artificial latency or empty buffer, apply latest replicated state immediately
+	if Network.simulated_latency_ms <= 0 or _latency_buffer.is_empty():
+		global_position = sync_position
+		if visual:
+			visual.rotation = sync_rotation
+		return
+
+	var current_time: float = Time.get_ticks_msec() / 1000.0
+	var render_time: float = current_time - (Network.simulated_latency_ms / 1000.0)
+
+	# Clean up older snapshots beyond render_time window
+	while _latency_buffer.size() > 2 and _latency_buffer[1]["time"] < render_time:
+		_latency_buffer.pop_front()
+
+	if _latency_buffer.is_empty():
+		global_position = sync_position
+		if visual:
+			visual.rotation = sync_rotation
+		return
+
+	if render_time <= _latency_buffer[0]["time"]:
+		global_position = _latency_buffer[0]["pos"]
+		if visual:
+			visual.rotation = _latency_buffer[0]["rot"]
+		return
+
+	if render_time >= _latency_buffer[-1]["time"]:
+		global_position = _latency_buffer[-1]["pos"]
+		if visual:
+			visual.rotation = _latency_buffer[-1]["rot"]
+		return
+
+	# Interpolate between the two snapshots surrounding render_time
+	for i in range(_latency_buffer.size() - 1):
+		var s0: Dictionary = _latency_buffer[i]
+		var s1: Dictionary = _latency_buffer[i + 1]
+		if s0["time"] <= render_time and render_time <= s1["time"]:
+			var duration: float = s1["time"] - s0["time"]
+			var factor: float = 0.0 if duration <= 0.0001 else (render_time - s0["time"]) / duration
+			if s0["pos"].distance_squared_to(s1["pos"]) > 25.0:
+				global_position = s1["pos"]
+			else:
+				global_position = s0["pos"].lerp(s1["pos"], factor)
+
+			if visual:
+				var r0: Vector3 = s0["rot"]
+				var r1: Vector3 = s1["rot"]
+				visual.rotation.y = lerp_angle(r0.y, r1.y, factor)
+				visual.rotation.x = lerp(r0.x, r1.x, factor)
+				visual.rotation.z = lerp(r0.z, r1.z, factor)
+			break
 
 func _update_animation_and_audio(is_moving: bool, just_jumped: bool) -> void:
 	var target_anim: String = "idle"
@@ -267,6 +371,67 @@ func set_checkpoint(new_pos: Vector3) -> void:
 func _sync_checkpoint(pos: Vector3) -> void:
 	if multiplayer.is_server():
 		respawn_position = pos
+
+# --- DESYNC DETECTION (STATE SNAPSHOT & HASHING) ---
+
+func get_state_snapshot(tick: int) -> Dictionary:
+	return {
+		"tick": tick,
+		"pos": global_position,
+		"vel": velocity,
+		"anim": anim_state,
+		"respawn": respawn_position
+	}
+
+func compute_state_hash(snapshot: Dictionary) -> int:
+	var pos: Vector3 = snapshot.get("pos", Vector3.ZERO)
+	var vel: Vector3 = snapshot.get("vel", Vector3.ZERO)
+	var anim: String = snapshot.get("anim", "")
+	# Quantize values to 1 decimal place (10cm precision) for stable network replication verification
+	var state_str: String = "%d|%.1f,%.1f,%.1f|%.1f,%.1f,%.1f|%s" % [
+		snapshot.get("tick", 0),
+		snappedf(pos.x, 0.1), snappedf(pos.y, 0.1), snappedf(pos.z, 0.1),
+		snappedf(vel.x, 0.1), snappedf(vel.y, 0.1), snappedf(vel.z, 0.1),
+		anim
+	]
+	return hash(state_str)
+
+func _record_state_and_report() -> void:
+	var snapshot: Dictionary = get_state_snapshot(physics_tick)
+	var current_hash: int = compute_state_hash(snapshot)
+	snapshot["hash"] = current_hash
+	state_history.append(snapshot)
+	if state_history.size() > MAX_STATE_HISTORY:
+		state_history.pop_front()
+
+	if not is_multiplayer_authority():
+		return
+
+	# Periodically report state checksum to server
+	if physics_tick % DESYNC_CHECK_INTERVAL == 0 and multiplayer != null and multiplayer.multiplayer_peer != null:
+		var world_node = get_tree().current_scene
+		if multiplayer.is_server():
+			if world_node and world_node.has_method("verify_desync_report"):
+				world_node.verify_desync_report(1, physics_tick, current_hash, global_position, velocity)
+		else:
+			_report_state_hash.rpc_id(1, physics_tick, current_hash, global_position, velocity)
+
+## Client -> Server. Sends state checksum and position snapshot to server for desync verification.
+@rpc("any_peer", "unreliable")
+func _report_state_hash(tick: int, client_hash: int, pos: Vector3, vel: Vector3) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	var world_node = get_tree().current_scene
+	if world_node and world_node.has_method("verify_desync_report"):
+		world_node.verify_desync_report(sender_id, tick, client_hash, pos, vel)
+
+## Server -> Client. Forces player to reconcile state if severe desync occurs or admin runs /resync.
+@rpc("authority", "call_local", "reliable")
+func _force_reconcile_state(new_pos: Vector3, new_vel: Vector3) -> void:
+	if is_multiplayer_authority():
+		global_position = new_pos
+		velocity = new_vel
 
 const SPEECH_BUBBLE_SCENE: PackedScene = preload("res://scenes/ui/SpeechBubble3D.tscn")
 var active_bubbles: Array[Node3D] = []
