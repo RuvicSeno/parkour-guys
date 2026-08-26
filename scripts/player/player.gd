@@ -258,18 +258,12 @@ func _physics_process(delta: float) -> void:
 		velocity.x = 0.0
 		velocity.z = 0.0
 		move_and_slide()
-<<<<<<< HEAD
+
 		if is_emoting:
 			stop_emote()
 		else:
 			anim_state = "idle"
-=======
-		anim_state = "idle"
 		_record_state_and_report()
-<<<<<<< Updated upstream
-=======
->>>>>>> b66373991f307a73b956aa5f0a8e2d1e066fb926
->>>>>>> Stashed changes
 		return
 
 	var jumped: bool = false
@@ -317,17 +311,24 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
-<<<<<<< HEAD
 	if not is_emoting:
 		_update_animation_and_audio(has_movement_input, jumped)
 	else:
 		if running_sfx and running_sfx.playing:
 			running_sfx.stop()
 
+	sync_position = global_position
+	sync_velocity = velocity
+	if visual:
+		sync_rotation = visual.rotation
+
+	_record_state_and_report()
+
 	# Void Area
 	if global_position.y < -10.0:
 		velocity = Vector3.ZERO
 		global_position = respawn_position
+		sync_position = global_position
 		if is_emoting:
 			stop_emote()
 
@@ -351,21 +352,6 @@ func _on_animation_finished(anim_name: StringName) -> void:
 	if is_emoting and anim_state == String(anim_name):
 		if current_emote and not current_emote.is_looping:
 			stop_emote()
-=======
-	_update_animation_and_audio(input_dir.length_squared() > 0.0, jumped)
-	
-	sync_position = global_position
-	sync_velocity = velocity
-	if visual:
-		sync_rotation = visual.rotation
-
-	_record_state_and_report()
-
-# Void Area
-	if global_position.y < -10.0:
-		velocity = Vector3.ZERO
-		global_position = respawn_position
-		sync_position = global_position
 
 func _process(_delta: float) -> void:
 	if is_multiplayer_authority():
@@ -422,10 +408,6 @@ func _process(_delta: float) -> void:
 				visual.rotation.x = lerp(r0.x, r1.x, factor)
 				visual.rotation.z = lerp(r0.z, r1.z, factor)
 			break
-<<<<<<< Updated upstream
-=======
->>>>>>> b66373991f307a73b956aa5f0a8e2d1e066fb926
->>>>>>> Stashed changes
 
 func _update_animation_and_audio(is_moving: bool, just_jumped: bool) -> void:
 	var target_anim: String = "idle"
