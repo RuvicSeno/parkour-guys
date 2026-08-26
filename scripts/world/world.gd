@@ -30,6 +30,22 @@ func _ready() -> void:
 
 	chat_message_received.connect(_on_chat_message_received)
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+	var emote_wheel = get_node_or_null("EmoteWheel/Control")
+	if emote_wheel and emote_wheel.has_signal("emote_selected"):
+		emote_wheel.emote_selected.connect(_on_emote_selected)
+
+func _on_emote_selected(emote: Emote) -> void:
+	if players_root == null:
+		return
+	var my_id: int = multiplayer.get_unique_id()
+	var my_player = players_root.get_node_or_null(str(my_id))
+	if my_player and my_player.has_method("play_emote"):
+		my_player.play_emote(emote)
+=======
+>>>>>>> Stashed changes
 	# Listen for join and reconnection events from the Network autoload
 	if Network.has_signal("player_reconnected"):
 		Network.player_reconnected.connect(_on_player_reconnected)
@@ -39,6 +55,10 @@ func _ready() -> void:
 func _on_player_joined_registry(_peer_id: int, username: String) -> void:
 	if multiplayer.is_server():
 		_broadcast_system_message.rpc("%s joined the game." % username)
+<<<<<<< Updated upstream
+=======
+>>>>>>> b66373991f307a73b956aa5f0a8e2d1e066fb926
+>>>>>>> Stashed changes
 
 func _on_server_created() -> void:
 	_request_spawn(multiplayer.get_unique_id())

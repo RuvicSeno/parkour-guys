@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="Emote" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/emote.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://assets/animations/emotes/Rumba Dancing.fbx" id="2_anim"]
+
+[resource]
+script = ExtResource("1_script")
+id = "rumba_dancing"
+display_name = "Rumba Dance"
+animation_scene = ExtResource("2_anim")
+animation_name = "rumba_dancing"
+is_looping = true
+lock_movement = false

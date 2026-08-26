@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://raxsuj4te6cc"]
+
+[ext_resource type="Script" uid="uid://cxremotewheel" path="res://scripts/ui/emote_wheel.gd" id="1_wheel"]
+
+[node name="EmoteWheel" type="CanvasLayer"]
+layer = 10
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_wheel")

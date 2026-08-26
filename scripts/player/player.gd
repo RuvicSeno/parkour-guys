@@ -66,6 +66,8 @@ func _set_sync_rotation(val: Vector3) -> void:
 # Add ".:anim_state" to the MultiplayerSynchronizer's replication config
 # (spawn: true, mode: sync/on change) alongside position/velocity.
 var anim_state: String = "idle": set = _set_anim_state
+var current_emote: Emote = null
+var is_emoting: bool = false
 
 func _ready() -> void:
 	respawn_position = global_position
@@ -82,6 +84,9 @@ func _ready() -> void:
 	if not Network.player_names_updated.is_connected(_setup_visuals):
 		Network.player_names_updated.connect(_setup_visuals)
 	
+	if animation_player and not animation_player.animation_finished.is_connected(_on_animation_finished):
+		animation_player.animation_finished.connect(_on_animation_finished)
+
 	if not is_multiplayer_authority():
 		set_physics_process(false)
 		set_process_unhandled_input(false)
@@ -140,6 +145,34 @@ func _setup_animations() -> void:
 				lib.add_animation(anim_key, anim)
 			inst.queue_free()
 
+	# Dynamically load default emote animations
+	var default_emote_paths: Array[String] = [
+		"res://resources/emotes/flair.tres",
+		"res://resources/emotes/rumba_dancing.tres",
+		"res://resources/emotes/silly_dancing.tres",
+		"res://resources/emotes/standing_pose.tres"
+	]
+	for ep in default_emote_paths:
+		if ResourceLoader.exists(ep):
+			var em_res = load(ep)
+			if em_res is Emote and em_res.animation_scene and em_res.animation_name != "":
+				var inst = em_res.animation_scene.instantiate()
+				var source_ap: AnimationPlayer = inst.find_child("AnimationPlayer", true, false) as AnimationPlayer
+				if source_ap and source_ap.get_animation_list().size() > 0:
+					var list = source_ap.get_animation_list()
+					var src_name: String = ""
+					if em_res.animation_name in list:
+						src_name = em_res.animation_name
+					elif "mixamo_com" in list:
+						src_name = "mixamo_com"
+					else:
+						src_name = list[0]
+
+					var anim: Animation = source_ap.get_animation(src_name).duplicate()
+					anim.loop_mode = Animation.LOOP_LINEAR if em_res.is_looping else Animation.LOOP_NONE
+					lib.add_animation(em_res.animation_name, anim)
+				inst.queue_free()
+
 	if animation_player.has_animation_library(""):
 		var main_lib = animation_player.get_animation_library("")
 		for anim_key in lib.get_animation_list():
@@ -188,6 +221,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if chat_ui and chat_ui.has_method("is_chat_focused") and chat_ui.is_chat_focused():
 		return
 
+	var emote_wheel = world_node.get_node_or_null("EmoteWheel/Control") if world_node else null
+	if emote_wheel and "is_open" in emote_wheel and emote_wheel.is_open:
+		return
+
 	# During gameplay: ESC releases cursor, click re-captures it
 	if match_active:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
@@ -221,8 +258,18 @@ func _physics_process(delta: float) -> void:
 		velocity.x = 0.0
 		velocity.z = 0.0
 		move_and_slide()
+<<<<<<< HEAD
+		if is_emoting:
+			stop_emote()
+		else:
+			anim_state = "idle"
+=======
 		anim_state = "idle"
 		_record_state_and_report()
+<<<<<<< Updated upstream
+=======
+>>>>>>> b66373991f307a73b956aa5f0a8e2d1e066fb926
+>>>>>>> Stashed changes
 		return
 
 	var jumped: bool = false
@@ -235,8 +282,23 @@ func _physics_process(delta: float) -> void:
 	var input_dir: Vector2 = Input.get_vector(
 		"move_left", "move_right", "move_forward", "move_back"
 	)
+	var has_movement_input: bool = input_dir.length_squared() > 0.0
 
-	if input_dir.length_squared() > 0.0:
+	# Emote cancellation / movement handling
+	if is_emoting:
+		if current_emote and current_emote.lock_movement:
+			# Locked emote: cancel movement vector
+			has_movement_input = false
+			input_dir = Vector2.ZERO
+			if jumped:
+				stop_emote()
+		else:
+			# Normal emote: moving or jumping immediately cancels emote
+			if has_movement_input or jumped or not is_on_floor():
+				is_emoting = false
+				current_emote = null
+
+	if has_movement_input:
 		var forward: Vector3 = -camera_pivot.global_transform.basis.z
 		var right: Vector3 = camera_pivot.global_transform.basis.x
 
@@ -255,6 +317,41 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
+<<<<<<< HEAD
+	if not is_emoting:
+		_update_animation_and_audio(has_movement_input, jumped)
+	else:
+		if running_sfx and running_sfx.playing:
+			running_sfx.stop()
+
+	# Void Area
+	if global_position.y < -10.0:
+		velocity = Vector3.ZERO
+		global_position = respawn_position
+		if is_emoting:
+			stop_emote()
+
+func play_emote(emote: Emote) -> void:
+	if not is_multiplayer_authority() or emote == null:
+		return
+	current_emote = emote
+	is_emoting = true
+	anim_state = emote.animation_name
+
+func stop_emote() -> void:
+	if not is_multiplayer_authority():
+		return
+	current_emote = null
+	is_emoting = false
+	anim_state = "idle"
+
+func _on_animation_finished(anim_name: StringName) -> void:
+	if not is_multiplayer_authority():
+		return
+	if is_emoting and anim_state == String(anim_name):
+		if current_emote and not current_emote.is_looping:
+			stop_emote()
+=======
 	_update_animation_and_audio(input_dir.length_squared() > 0.0, jumped)
 	
 	sync_position = global_position
@@ -325,6 +422,10 @@ func _process(_delta: float) -> void:
 				visual.rotation.x = lerp(r0.x, r1.x, factor)
 				visual.rotation.z = lerp(r0.z, r1.z, factor)
 			break
+<<<<<<< Updated upstream
+=======
+>>>>>>> b66373991f307a73b956aa5f0a8e2d1e066fb926
+>>>>>>> Stashed changes
 
 func _update_animation_and_audio(is_moving: bool, just_jumped: bool) -> void:
 	var target_anim: String = "idle"

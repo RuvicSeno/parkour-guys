@@ -49,4 +49,3 @@ func show_countdown(number: int) -> void:
 
 func hide_ui() -> void:
 	hide()
-
