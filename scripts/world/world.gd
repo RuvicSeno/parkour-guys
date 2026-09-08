@@ -40,6 +40,9 @@ func _ready() -> void:
 	if Network.has_signal("player_joined_registry"):
 		Network.player_joined_registry.connect(_on_player_joined_registry)
 
+	if Network.player_colors.size() > 0:
+		_start_match()
+
 func _on_emote_selected(emote: Emote) -> void:
 	if players_root == null:
 		return
@@ -54,7 +57,13 @@ func _on_player_joined_registry(_peer_id: int, username: String) -> void:
 
 func _on_server_created() -> void:
 	_request_spawn(multiplayer.get_unique_id())
-	_update_ready_ui.rpc(ready_peers.size(), _get_total_player_count())
+	for peer_id in multiplayer.get_peers():
+		_request_spawn(peer_id)
+
+	if Network.player_colors.size() > 0:
+		_start_match.rpc()
+	else:
+		_update_ready_ui.rpc(ready_peers.size(), _get_total_player_count())
 
 func _on_peer_connected(peer_id: int) -> void:
 	if not multiplayer.is_server():
@@ -105,7 +114,7 @@ func _spawn_player(data: Dictionary) -> Node:
 
 	var player: CharacterBody3D = PLAYER_SCENE.instantiate()
 	player.name = str(peer_id)
-	player.player_color_index = spawn_index
+	player.player_color_index = Network.player_colors.get(peer_id, spawn_index)
 	player.set_meta("spawn_index", spawn_index)
 
 	var spawn_point: Node3D = spawn_points.get_child(spawn_index)

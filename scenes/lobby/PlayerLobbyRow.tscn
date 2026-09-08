@@ -1,0 +1,92 @@
+[gd_scene format=3 uid="uid://dfrow839210"]
+
+[ext_resource type="Script" path="res://scripts/lobby/player_lobby_row.gd" id="1_row"]
+
+[sub_resource type="Environment" id="Environment_preview"]
+ambient_light_source = 2
+ambient_light_color = Color(0.7, 0.7, 0.7, 1)
+ambient_light_energy = 1.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_row"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.18, 0.15, 0.25, 0.85)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="PlayerLobbyRow" type="PanelContainer"]
+custom_minimum_size = Vector2(0, 100)
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 104.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_row")
+script = ExtResource("1_row")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PreviewContainer" type="HBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 4
+
+[node name="PrevColorBtn" type="Button" parent="HBoxContainer/PreviewContainer"]
+custom_minimum_size = Vector2(28, 40)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 18
+text = "<"
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="HBoxContainer/PreviewContainer"]
+custom_minimum_size = Vector2(96, 88)
+layout_mode = 2
+size_flags_vertical = 4
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="HBoxContainer/PreviewContainer/SubViewportContainer"]
+own_world_3d = true
+transparent_bg = true
+handle_input_locally = false
+size = Vector2i(96, 88)
+render_target_update_mode = 3
+
+[node name="Camera3D" type="Camera3D" parent="HBoxContainer/PreviewContainer/SubViewportContainer/SubViewport"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 2.5)
+fov = 42.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="HBoxContainer/PreviewContainer/SubViewportContainer/SubViewport"]
+transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.433013, 0.75, 0, 2, 2)
+light_energy = 1.4
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="HBoxContainer/PreviewContainer/SubViewportContainer/SubViewport"]
+environment = SubResource("Environment_preview")
+
+[node name="ModelContainer" type="Node3D" parent="HBoxContainer/PreviewContainer/SubViewportContainer/SubViewport"]
+
+[node name="NextColorBtn" type="Button" parent="HBoxContainer/PreviewContainer"]
+custom_minimum_size = Vector2(28, 40)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 18
+text = ">"
+
+[node name="InfoVBox" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="NameLabel" type="Label" parent="HBoxContainer/InfoVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Player"
+
+[node name="StatusLabel" type="Label" parent="HBoxContainer/InfoVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "NOT READY"

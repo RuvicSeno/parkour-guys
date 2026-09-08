@@ -7,6 +7,10 @@ extends Control
 @onready var status_label: Label = $VBoxContainer/StatusLabel
 
 func _ready() -> void:
+	if multiplayer.multiplayer_peer != null:
+		hide()
+		return
+
 	name_line_edit.placeholder_text = "Enter your name"
 	host_button.pressed.connect(_on_host_pressed)
 	join_button.pressed.connect(_on_join_pressed)

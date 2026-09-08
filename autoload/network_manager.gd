@@ -31,6 +31,20 @@ var local_player_name: String = ""
 ## read-only.
 var player_names: Dictionary = {}
 
+## Peer ID -> Color index mapping determined in lobby and preserved across scene transitions.
+var player_colors: Dictionary = {}
+
+const PLAYER_COLORS: Array[Color] = [
+	Color(0.9, 0.2, 0.2), # Red
+	Color(0.2, 0.5, 0.9), # Blue
+	Color(0.2, 0.8, 0.3), # Green
+	Color(0.9, 0.8, 0.1), # Yellow
+	Color(0.8, 0.2, 0.8), # Purple
+	Color(0.1, 0.8, 0.8), # Cyan
+	Color(0.9, 0.5, 0.1), # Orange
+	Color(0.9, 0.4, 0.6)  # Pink
+]
+
 # --- ADMIN PERMISSION SYSTEM ---
 # Admin status lives ONLY on the server. Clients never see this array.
 # They send commands; the server checks permission before executing.
@@ -130,6 +144,7 @@ func join_game(ip_address: String, port: int = DEFAULT_PORT) -> Error:
 func disconnect_from_game() -> void:
 	_reconnecting = false
 	_reconnect_attempts = 0
+	player_colors.clear()
 	multiplayer.multiplayer_peer = null
 
 func _on_peer_connected(id: int) -> void:
@@ -145,6 +160,7 @@ func _on_peer_connected(id: int) -> void:
 func _on_peer_disconnected(id: int) -> void:
 	print("Peer disconnected: %d" % id)
 	player_disconnected.emit(id)
+	player_colors.erase(id)
 	if multiplayer.is_server() and player_names.has(id):
 		player_names.erase(id)
 		admin_peers.erase(id)
