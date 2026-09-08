@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://chatui123456" path="res://scenes/ui/ChatUI.tscn" id="8_chat"]
 [ext_resource type="PackedScene" uid="uid://cxab3f8k8e0b0" path="res://scenes/ui/ReconnectUI.tscn" id="9_reconn"]
 [ext_resource type="PackedScene" uid="uid://emotewheel123" path="res://scenes/ui/EmoteWheel.tscn" id="10_emote"]
+[ext_resource type="PackedScene" uid="uid://dfcountdown123" path="res://scenes/ui/CountdownUI.tscn" id="11_cntui"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1wvas"]
 sky_top_color = Color(0.45, 0.72, 0.98, 1)
@@ -610,6 +611,8 @@ material = SubResource("StandardMaterial3D_bb7h1")
 [node name="WinBanner" parent="." unique_id=506059509 instance=ExtResource("4_win")]
 
 [node name="ReadyUI" parent="." unique_id=1261070134 instance=ExtResource("6_rdy")]
+
+[node name="CountdownUI" parent="." unique_id=1463819920 instance=ExtResource("11_cntui")]
 
 [node name="LeaderboardUI" parent="." unique_id=1463819913 instance=ExtResource("7_ldb")]
 

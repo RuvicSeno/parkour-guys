@@ -45,8 +45,8 @@ func _ready() -> void:
 	Network.disconnected_from_server.connect(_on_disconnected_from_server)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 
-	# Check if already connected (e.g. returning to lobby)
-	if multiplayer.multiplayer_peer != null and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+	# Only show room if returning from an active networked ENet session
+	if multiplayer.multiplayer_peer is ENetMultiplayerPeer and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
 		_show_room()
 		if multiplayer.is_server():
 			if not lobby_players.has(1):
@@ -223,13 +223,20 @@ func request_start_game() -> void:
 	var sender_id: int = multiplayer.get_remote_sender_id()
 	if sender_id == 0:
 		sender_id = multiplayer.get_unique_id()
-	if sender_id != 1 or is_counting_down:
+	if sender_id != 1:
 		return
 
 	if not _server_are_all_ready():
 		return
 
-	_server_begin_countdown()
+	# Disable buttons and notify peers
+	_sync_status.rpc("Starting game... Loading map...")
+
+	# Store colors in Network autoload before transitioning
+	for p_id in lobby_players:
+		Network.player_colors[p_id] = lobby_players[p_id]["color_index"]
+
+	_load_game_scene.rpc(Network.player_colors)
 
 func _server_are_all_ready() -> bool:
 	if lobby_players.is_empty():
@@ -238,34 +245,6 @@ func _server_are_all_ready() -> bool:
 		if not p_data.get("is_ready", false):
 			return false
 	return true
-
-func _server_begin_countdown() -> void:
-	is_counting_down = true
-	countdown_cancel_requested = false
-
-	for sec in range(3, 0, -1):
-		if countdown_cancel_requested:
-			is_counting_down = false
-			_sync_status.rpc("Countdown cancelled!")
-			_server_broadcast_state()
-			return
-		_sync_countdown.rpc(sec)
-		await get_tree().create_timer(1.0).timeout
-
-	if countdown_cancel_requested:
-		is_counting_down = false
-		_sync_status.rpc("Countdown cancelled!")
-		_server_broadcast_state()
-		return
-
-	_sync_countdown.rpc(0)
-	await get_tree().create_timer(0.5).timeout
-
-	# Store colors in Network autoload before transitioning
-	for p_id in lobby_players:
-		Network.player_colors[p_id] = lobby_players[p_id]["color_index"]
-
-	_load_game_scene.rpc(Network.player_colors)
 
 # --- RPC CLIENT SYNCS ---
 

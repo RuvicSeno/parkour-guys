@@ -9,6 +9,8 @@ const PLAYER_SCENE: PackedScene = preload("res://scenes/player/Player.tscn")
 var game_started: bool = false
 var ready_peers: Array[int] = []
 var finished_players: Array[int] = []
+var loaded_peers: Array[int] = []
+var is_world_counting_down: bool = false
 
 # --- CHAT & DESYNC DETECTION STATE ---
 signal desync_detected(peer_id: int, drift: float, tick: int)
@@ -40,8 +42,24 @@ func _ready() -> void:
 	if Network.has_signal("player_joined_registry"):
 		Network.player_joined_registry.connect(_on_player_joined_registry)
 
+	var ready_ui = get_node_or_null("ReadyUI")
+	if ready_ui:
+		ready_ui.hide()
+
 	if Network.player_colors.size() > 0:
-		_start_match()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		game_started = false
+		var countdown_ui = get_node_or_null("CountdownUI")
+		if countdown_ui and countdown_ui.has_method("show_loading"):
+			countdown_ui.show_loading("Loading map & waiting for players...")
+
+		if multiplayer.is_server():
+			if not 1 in loaded_peers:
+				loaded_peers.append(1)
+			_check_all_peers_loaded()
+			get_tree().create_timer(6.0).timeout.connect(_on_loading_timeout)
+		else:
+			_server_report_loaded.rpc_id(1)
 
 func _on_emote_selected(emote: Emote) -> void:
 	if players_root == null:
@@ -61,7 +79,9 @@ func _on_server_created() -> void:
 		_request_spawn(peer_id)
 
 	if Network.player_colors.size() > 0:
-		_start_match.rpc()
+		if not 1 in loaded_peers:
+			loaded_peers.append(1)
+		_check_all_peers_loaded()
 	else:
 		_update_ready_ui.rpc(ready_peers.size(), _get_total_player_count())
 
@@ -92,8 +112,12 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if existing:
 		existing.queue_free()
 	ready_peers.erase(peer_id)
+	loaded_peers.erase(peer_id)
 	muted_peers.erase(peer_id)
 	desync_stats.erase(peer_id)
+
+	if not is_world_counting_down and not game_started and Network.player_colors.size() > 0:
+		_check_all_peers_loaded()
 
 	if not game_started:
 		_update_ready_ui.rpc(ready_peers.size(), _get_total_player_count())
@@ -157,6 +181,50 @@ func _begin_countdown() -> void:
 	await get_tree().create_timer(0.5).timeout
 	_start_match.rpc()
 
+# --- IN-WORLD SYNCHRONIZED LOADING & COUNTDOWN ---
+
+@rpc("any_peer", "reliable")
+func _server_report_loaded() -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id == 0:
+		sender_id = multiplayer.get_unique_id()
+	if not sender_id in loaded_peers:
+		loaded_peers.append(sender_id)
+	_check_all_peers_loaded()
+
+func _check_all_peers_loaded() -> void:
+	if is_world_counting_down or game_started:
+		return
+	var total_expected: int = _get_total_player_count()
+	if loaded_peers.size() >= total_expected and total_expected > 0:
+		_begin_world_countdown()
+
+func _on_loading_timeout() -> void:
+	if not is_world_counting_down and not game_started:
+		print("Loading timeout reached (6s): proceeding with countdown for loaded peers.")
+		_begin_world_countdown()
+
+func _begin_world_countdown() -> void:
+	if is_world_counting_down or game_started:
+		return
+	is_world_counting_down = true
+
+	for sec in range(3, 0, -1):
+		_sync_world_countdown.rpc(sec)
+		await get_tree().create_timer(1.0).timeout
+
+	_sync_world_countdown.rpc(0) # "GO!"
+	await get_tree().create_timer(0.6).timeout
+	_start_match.rpc()
+
+@rpc("authority", "call_local", "reliable")
+func _sync_world_countdown(number: int) -> void:
+	var cnt_ui = get_node_or_null("CountdownUI")
+	if cnt_ui and cnt_ui.has_method("show_countdown"):
+		cnt_ui.show_countdown(number)
+
 @rpc("authority", "call_local", "reliable")
 func _update_ready_ui(ready_count: int, total_count: int) -> void:
 	if game_started:
@@ -174,6 +242,10 @@ func _update_countdown(number: int) -> void:
 @rpc("authority", "call_local", "reliable")
 func _start_match() -> void:
 	game_started = true
+	is_world_counting_down = false
+	var cnt_ui = get_node_or_null("CountdownUI")
+	if cnt_ui and cnt_ui.has_method("hide_all"):
+		cnt_ui.hide_all()
 	var ready_ui = get_node_or_null("ReadyUI/Control")
 	if ready_ui and ready_ui.has_method("hide_ui"):
 		ready_ui.hide_ui()
