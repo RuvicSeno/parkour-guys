@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://cxab3f8k8e0b0" path="res://scenes/ui/ReconnectUI.tscn" id="9_reconn"]
 [ext_resource type="PackedScene" uid="uid://emotewheel123" path="res://scenes/ui/EmoteWheel.tscn" id="10_emote"]
 [ext_resource type="PackedScene" uid="uid://dfcountdown123" path="res://scenes/ui/CountdownUI.tscn" id="11_cntui"]
+[ext_resource type="PackedScene" uid="uid://pingoverlay123" path="res://scenes/ui/PingOverlay.tscn" id="12_ping"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_1wvas"]
 sky_top_color = Color(0.45, 0.72, 0.98, 1)
@@ -621,6 +622,8 @@ material = SubResource("StandardMaterial3D_bb7h1")
 [node name="ReconnectUI" parent="." instance=ExtResource("9_reconn")]
 
 [node name="EmoteWheel" parent="." unique_id=1463819915 instance=ExtResource("10_emote")]
+
+[node name="PingOverlay" parent="." unique_id=1463819921 instance=ExtResource("12_ping")]
 
 [node name="BGMPlayer" type="AudioStreamPlayer" parent="." unique_id=535798540]
 stream = ExtResource("5_bgm")

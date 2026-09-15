@@ -277,13 +277,7 @@ func send_chat_message(raw_text: String) -> void:
 	if multiplayer.is_server():
 		_process_chat_message(multiplayer.get_unique_id(), raw_text)
 	else:
-		if Network.simulated_latency_ms > 0:
-			get_tree().create_timer(Network.simulated_latency_ms / 1000.0).timeout.connect(func():
-				if multiplayer.multiplayer_peer != null:
-					_request_chat_message.rpc_id(1, raw_text)
-			)
-		else:
-			_request_chat_message.rpc_id(1, raw_text)
+		_request_chat_message.rpc_id(1, raw_text)
 
 @rpc("any_peer", "reliable")
 func _request_chat_message(raw_text: String) -> void:
@@ -324,12 +318,7 @@ func _process_chat_message(sender_id: int, raw_text: String) -> void:
 
 @rpc("authority", "call_local", "reliable")
 func _broadcast_chat_message(sender_id: int, sender_name: String, message: String) -> void:
-	if not multiplayer.is_server() and Network.simulated_latency_ms > 0:
-		get_tree().create_timer(Network.simulated_latency_ms / 1000.0).timeout.connect(func():
-			chat_message_received.emit(sender_id, sender_name, message)
-		)
-	else:
-		chat_message_received.emit(sender_id, sender_name, message)
+	chat_message_received.emit(sender_id, sender_name, message)
 
 func _on_chat_message_received(sender_id: int, sender_name: String, message: String) -> void:
 	var chat_ui = get_node_or_null("ChatUI/Control")
@@ -413,6 +402,10 @@ func _handle_command(sender_id: int, command_text: String) -> void:
 			_cmd_kill(sender_id, parts)
 		"/latency", "/lag", "/simlag":
 			_cmd_latency(sender_id, parts)
+		"/loss", "/packetloss":
+			_cmd_packet_loss(sender_id, parts)
+		"/netpreset", "/preset":
+			_cmd_netpreset(sender_id, parts)
 		"/desync", "/syncstatus", "/checksync":
 			_cmd_desync(sender_id, parts)
 		"/resync":
@@ -447,7 +440,7 @@ func _require_admin(sender_id: int) -> bool:
 	return false
 
 # --- /ping ---
-# Available to ALL players. Uses ENet's round-trip-time statistic and includes simulated latency.
+# Available to ALL players. Uses ENet's round-trip-time statistic and includes simulated latency/loss.
 func _cmd_ping(sender_id: int) -> void:
 	var base_rtt: float = 0.0
 	var found_rtt: bool = false
@@ -459,21 +452,23 @@ func _cmd_ping(sender_id: int) -> void:
 				base_rtt = packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)
 				found_rtt = true
 
-	var sim_lat: int = Network.simulated_latency_ms
-	var total_ping: int = int(base_rtt + (sim_lat * 2))
+	var sim_ping: int = Network.simulated_latency_ms
+	var sim_loss: float = Network.simulated_packet_loss_percent
+	var total_ping: int = int(base_rtt + sim_ping)
+
+	var sim_info: String = ""
+	if sim_ping > 0 or sim_loss > 0.0:
+		sim_info = " | Sim Net: %d ms ping, %.1f%% loss" % [sim_ping, sim_loss]
 
 	if sender_id == 1:
-		if sim_lat > 0:
-			_server_send_system_message(sender_id, "Your ping: 0 ms (Host) | Global simulated latency: %d ms (%d ms RTT)" % [sim_lat, sim_lat * 2])
-		else:
-			_server_send_system_message(sender_id, "Your ping: 0 ms (you are the host)")
+		_server_send_system_message(sender_id, "Your ping: 0 ms (Host)%s" % sim_info)
 		return
 
-	if found_rtt or sim_lat > 0:
-		if sim_lat > 0:
-			_server_send_system_message(sender_id, "Your ping: %d ms (%d ms real + %d ms simulated RTT)" % [total_ping, int(base_rtt), sim_lat * 2])
+	if found_rtt or sim_ping > 0:
+		if sim_ping > 0:
+			_server_send_system_message(sender_id, "Your ping: %d ms (%d ms real + %d ms simulated)%s" % [total_ping, int(base_rtt), sim_ping, sim_info])
 		else:
-			_server_send_system_message(sender_id, "Your ping: %d ms" % total_ping)
+			_server_send_system_message(sender_id, "Your ping: %d ms%s" % [total_ping, sim_info])
 		return
 
 	_server_send_system_message(sender_id, "Could not determine ping.")
@@ -637,15 +632,16 @@ func _admin_respawn_player(target_peer_id: int) -> void:
 			p_node.velocity = Vector3.ZERO
 			p_node.global_position = p_node.respawn_position
 
-# --- /latency <0|50|150|300|ms|off> ---
-# Admin only. Sets simulated artificial network latency globally for testing.
+# --- /latency <ms> [loss%] /lag <ms> [loss%] ---
+# Admin only. Sets simulated artificial network latency and optional packet loss globally for testing.
 func _cmd_latency(sender_id: int, parts: PackedStringArray) -> void:
 	if not _require_admin(sender_id):
 		return
 
 	if parts.size() < 2:
 		var current_ms: int = Network.simulated_latency_ms
-		_server_send_system_message(sender_id, "Simulated latency: %d ms (Presets: 0ms/off, 50ms, 150ms, 300ms). Usage: /latency <ms>" % current_ms)
+		var current_loss: float = Network.simulated_packet_loss_percent
+		_server_send_system_message(sender_id, "Simulated network: %d ms ping, %.1f%% packet loss. Usage: /lag <ms> [loss%%] (Presets: /netpreset laggy | spikes | off)" % [current_ms, current_loss])
 		return
 
 	var arg: String = parts[1].to_lower().strip_edges()
@@ -655,14 +651,76 @@ func _cmd_latency(sender_id: int, parts: PackedStringArray) -> void:
 	elif arg.is_valid_int():
 		latency_ms = maxi(0, arg.to_int())
 	else:
-		_server_send_system_message(sender_id, "Invalid latency '%s'. Presets: 0ms, 50ms, 150ms, 300ms." % arg)
+		_server_send_system_message(sender_id, "Invalid latency '%s'. Usage: /lag <ms> [loss%%]" % arg)
 		return
 
 	Network.set_simulated_latency(latency_ms)
-	if latency_ms == 0:
-		_broadcast_system_message.rpc("Admin disabled artificial network latency (0 ms).")
+
+	# If second argument provided, also update packet loss
+	if parts.size() >= 3:
+		var loss_arg: String = parts[2].strip_edges()
+		if loss_arg.is_valid_float():
+			var loss_pct: float = clampf(loss_arg.to_float(), 0.0, 100.0)
+			Network.set_simulated_packet_loss(loss_pct)
+	elif latency_ms == 0:
+		Network.set_simulated_packet_loss(0.0)
+
+	var cur_loss: float = Network.simulated_packet_loss_percent
+	if latency_ms == 0 and cur_loss <= 0.0:
+		_broadcast_system_message.rpc("Admin disabled simulated network lag & packet loss.")
 	else:
-		_broadcast_system_message.rpc("Admin set artificial network latency to %d ms (Presets: 0ms, 50ms, 150ms, 300ms)." % latency_ms)
+		_broadcast_system_message.rpc("Admin set simulated network conditions: %d ms ping, %.1f%% packet loss." % [latency_ms, cur_loss])
+
+# --- /loss <0-100|off> ---
+# Admin only. Sets simulated packet loss percentage.
+func _cmd_packet_loss(sender_id: int, parts: PackedStringArray) -> void:
+	if not _require_admin(sender_id):
+		return
+
+	if parts.size() < 2:
+		var current_loss: float = Network.simulated_packet_loss_percent
+		_server_send_system_message(sender_id, "Simulated packet loss: %.1f%%. Usage: /loss <percent|off>" % current_loss)
+		return
+
+	var arg: String = parts[1].to_lower().strip_edges()
+	var loss_pct: float = 0.0
+	if arg == "off":
+		loss_pct = 0.0
+	elif arg.is_valid_float():
+		loss_pct = clampf(arg.to_float(), 0.0, 100.0)
+	else:
+		_server_send_system_message(sender_id, "Invalid packet loss '%s'. Usage: /loss <0-100>" % arg)
+		return
+
+	Network.set_simulated_packet_loss(loss_pct)
+	_broadcast_system_message.rpc("Admin set simulated packet loss to %.1f%%." % loss_pct)
+
+# --- /netpreset <laggy|spikes|clean|off> ---
+# Admin only. Quick presets for testing network conditions.
+func _cmd_netpreset(sender_id: int, parts: PackedStringArray) -> void:
+	if not _require_admin(sender_id):
+		return
+
+	if parts.size() < 2:
+		_server_send_system_message(sender_id, "Usage: /netpreset <laggy | spikes | clean | off>\n  laggy: 150ms ping, 10% packet loss\n  spikes: 250ms ping, 15% packet loss\n  clean / off: 0ms ping, 0% packet loss")
+		return
+
+	var preset: String = parts[1].to_lower().strip_edges()
+	match preset:
+		"laggy", "target":
+			Network.set_simulated_latency(150)
+			Network.set_simulated_packet_loss(10.0)
+			_broadcast_system_message.rpc("Admin applied network preset 'laggy': 150 ms ping, 10.0% packet loss.")
+		"spikes", "high":
+			Network.set_simulated_latency(250)
+			Network.set_simulated_packet_loss(15.0)
+			_broadcast_system_message.rpc("Admin applied network preset 'spikes': 250 ms ping, 15.0% packet loss.")
+		"clean", "off", "reset":
+			Network.set_simulated_latency(0)
+			Network.set_simulated_packet_loss(0.0)
+			_broadcast_system_message.rpc("Admin reset network simulation to clean: 0 ms ping, 0.0% packet loss.")
+		_:
+			_server_send_system_message(sender_id, "Unknown preset '%s'. Available: laggy, spikes, clean, off" % preset)
 
 # --- /desync [player_name|id] ---
 # Admin only. Displays desync detection statistics for all players or a specific player.
@@ -707,7 +765,7 @@ func _show_player_desync_stats(admin_id: int, target_id: int) -> void:
 	var last_drift: float = stats.get("last_drift", 0.0)
 	var max_drift: float = stats.get("max_drift", 0.0)
 	var last_tick: int = stats.get("last_check_tick", 0)
-	var cur_tol: float = DESYNC_TOLERANCE_METERS + (Network.simulated_latency_ms / 1000.0 * 6.0)
+	var cur_tol: float = DESYNC_TOLERANCE_METERS + (Network.simulated_latency_ms / 1000.0 * 6.0) + (Network.simulated_packet_loss_percent / 100.0 * 4.0)
 	var msg: String = "=== SYNC STATS: %s (ID %d) ===\nStatus: %s\nDesync Count: %d / %d checks\nLast Drift: %.3fm\nMax Drift: %.3fm\nLast Verified Tick: %d\nTolerance: %.2fm" % [
 		p_name, target_id, status, desync_count, total_checks, last_drift, max_drift, last_tick, cur_tol
 	]
@@ -774,7 +832,7 @@ func verify_desync_report(peer_id: int, tick: int, client_hash: int, client_pos:
 		var server_snapshot: Dictionary = p_node.get_state_snapshot(tick)
 		var server_hash: int = p_node.compute_state_hash(server_snapshot)
 
-		var max_allowed_drift: float = DESYNC_TOLERANCE_METERS + (Network.simulated_latency_ms / 1000.0 * 6.0)
+		var max_allowed_drift: float = DESYNC_TOLERANCE_METERS + (Network.simulated_latency_ms / 1000.0 * 6.0) + (Network.simulated_packet_loss_percent / 100.0 * 4.0)
 
 		# Check if drift exceeds allowable physics/network window or severe state divergence occurs
 		if drift > max_allowed_drift or (client_hash != server_hash and drift > 1.2):

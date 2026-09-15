@@ -43,24 +43,80 @@ var sync_position: Vector3 = Vector3.ZERO: set = _set_sync_position
 var sync_velocity: Vector3 = Vector3.ZERO
 var sync_rotation: Vector3 = Vector3.ZERO: set = _set_sync_rotation
 
-# Latency simulation playback buffer for remote instances
-var _latency_buffer: Array[Dictionary] = []
-const MAX_LATENCY_BUFFER_SIZE: int = 180
+# Flag to ensure all replicated properties from the same packet tick are grouped
+var _pending_sync_update: bool = false
+
+# Network Simulation transit queue for remote instances:
+# Holds incoming packets to simulate connection transit delay (one-way ping).
+# Packets are randomly dropped according to Network.simulated_packet_loss_percent (e.g. 10%).
+var _transit_queue: Array[Dictionary] = []
+
+# Ordered snapshot history buffer for interpolation:
+# Each snapshot: { "time": float, "pos": Vector3, "vel": Vector3, "quat": Quaternion, "anim": String }
+var _snapshots: Array[Dictionary] = []
+const MAX_SNAPSHOT_HISTORY: int = 120
+
+# Interpolation & Dead Reckoning parameters:
+const BASE_INTERPOLATION_DELAY: float = 0.05
+const MAX_EXTRAPOLATION_TIME: float = 0.30
 
 func _set_sync_position(val: Vector3) -> void:
 	sync_position = val
 	if not is_multiplayer_authority():
-		_latency_buffer.append({
-			"time": Time.get_ticks_msec() / 1000.0,
-			"pos": val,
-			"rot": sync_rotation,
-			"vel": sync_velocity
-		})
-		if _latency_buffer.size() > MAX_LATENCY_BUFFER_SIZE:
-			_latency_buffer.pop_front()
+		_pending_sync_update = true
 
 func _set_sync_rotation(val: Vector3) -> void:
 	sync_rotation = val
+	if not is_multiplayer_authority() and _pending_sync_update:
+		_ingest_replicated_packet()
+		_pending_sync_update = false
+
+func _ingest_replicated_packet() -> void:
+	if is_multiplayer_authority():
+		return
+
+	# 1. Packet Loss Simulation:
+	# Randomly drop incoming packet if simulated packet loss is enabled (e.g. 10%)
+	if Network.simulated_packet_loss_percent > 0.0:
+		if randf() * 100.0 < Network.simulated_packet_loss_percent:
+			return
+
+	var now: float = Time.get_ticks_usec() / 1000000.0
+	var transit_delay: float = Network.get_simulated_one_way_latency_sec()
+	var rot_quat: Quaternion = Quaternion.from_euler(sync_rotation)
+
+	# 2. Connection Transit Delay Simulation:
+	# If simulated ping is active, queue packet until deliver_time
+	if transit_delay > 0.001:
+		_transit_queue.append({
+			"deliver_time": now + transit_delay,
+			"pos": sync_position,
+			"vel": sync_velocity,
+			"quat": rot_quat,
+			"anim": anim_state
+		})
+	else:
+		_add_snapshot(now, sync_position, sync_velocity, rot_quat, anim_state)
+
+func _add_snapshot(t: float, pos: Vector3, vel: Vector3, quat: Quaternion, anim: String) -> void:
+	# Teleport / void respawn protection: if position jump > 15m, clear buffer and snap
+	if not _snapshots.is_empty():
+		var last_pos: Vector3 = _snapshots[-1]["pos"]
+		if last_pos.distance_squared_to(pos) > 225.0:
+			_snapshots.clear()
+			global_position = pos
+			if visual:
+				visual.quaternion = quat
+
+	_snapshots.append({
+		"time": t,
+		"pos": pos,
+		"vel": vel,
+		"quat": quat,
+		"anim": anim
+	})
+	if _snapshots.size() > MAX_SNAPSHOT_HISTORY:
+		_snapshots.pop_front()
 
 # NEW: replicated animation state. Every peer reads this and plays it locally.
 # Add ".:anim_state" to the MultiplayerSynchronizer's replication config
@@ -357,56 +413,89 @@ func _process(_delta: float) -> void:
 	if is_multiplayer_authority():
 		return
 
-	# If no artificial latency or empty buffer, apply latest replicated state immediately
-	if Network.simulated_latency_ms <= 0 or _latency_buffer.is_empty():
+	# Flush any remaining pending sync updates
+	if _pending_sync_update:
+		_ingest_replicated_packet()
+		_pending_sync_update = false
+
+	var now: float = Time.get_ticks_usec() / 1000000.0
+
+	# Release packets from transit queue whose simulated delivery time has arrived
+	while not _transit_queue.is_empty() and _transit_queue[0]["deliver_time"] <= now:
+		var pkt: Dictionary = _transit_queue.pop_front()
+		_add_snapshot(pkt["deliver_time"], pkt["pos"], pkt["vel"], pkt["quat"], pkt["anim"])
+
+	if _snapshots.is_empty():
 		global_position = sync_position
 		if visual:
-			visual.rotation = sync_rotation
+			visual.quaternion = Quaternion.from_euler(sync_rotation)
 		return
 
-	var current_time: float = Time.get_ticks_msec() / 1000.0
-	var render_time: float = current_time - (Network.simulated_latency_ms / 1000.0)
+	# Adaptive jitter buffer delay:
+	# Accommodates packet gaps during 10% packet loss and 150ms ping
+	var interp_delay: float = BASE_INTERPOLATION_DELAY
+	if Network.simulated_packet_loss_percent > 0.0 or Network.simulated_latency_ms > 0:
+		interp_delay = clampf(BASE_INTERPOLATION_DELAY + (Network.simulated_packet_loss_percent / 100.0 * 0.05), 0.06, 0.12)
 
-	# Clean up older snapshots beyond render_time window
-	while _latency_buffer.size() > 2 and _latency_buffer[1]["time"] < render_time:
-		_latency_buffer.pop_front()
+	var render_time: float = now - interp_delay
 
-	if _latency_buffer.is_empty():
-		global_position = sync_position
+	# Prune snapshots older than render_time, keeping at least 2 for interpolation
+	while _snapshots.size() > 2 and _snapshots[1]["time"] < render_time:
+		_snapshots.pop_front()
+
+	if _snapshots.size() == 1:
+		global_position = _snapshots[0]["pos"]
 		if visual:
-			visual.rotation = sync_rotation
+			visual.quaternion = _snapshots[0]["quat"]
 		return
 
-	if render_time <= _latency_buffer[0]["time"]:
-		global_position = _latency_buffer[0]["pos"]
+	# If render_time is before the earliest snapshot in buffer, clamp to earliest
+	if render_time <= _snapshots[0]["time"]:
+		global_position = _snapshots[0]["pos"]
 		if visual:
-			visual.rotation = _latency_buffer[0]["rot"]
+			visual.quaternion = _snapshots[0]["quat"]
 		return
 
-	if render_time >= _latency_buffer[-1]["time"]:
-		global_position = _latency_buffer[-1]["pos"]
+	# Check if render_time has surpassed latest snapshot (due to 10% packet loss or ping spike!)
+	var latest: Dictionary = _snapshots[-1]
+	if render_time > latest["time"]:
+		var dt: float = render_time - latest["time"]
+		if dt <= MAX_EXTRAPOLATION_TIME:
+			# DEAD RECKONING: Glide smoothly along last known velocity
+			var effective_dt: float = dt
+			if dt > 0.15:
+				# Smooth deceleration towards 300ms to avoid ghosting through walls
+				var t_decay: float = (dt - 0.15) / (MAX_EXTRAPOLATION_TIME - 0.15)
+				var decel: float = 1.0 - (t_decay * t_decay)
+				effective_dt = 0.15 + (dt - 0.15) * decel
+			global_position = latest["pos"] + latest["vel"] * effective_dt
+		else:
+			# Halted after max extrapolation window to prevent wall clipping
+			global_position = latest["pos"] + latest["vel"] * (0.15 + (MAX_EXTRAPOLATION_TIME - 0.15) * 0.5)
 		if visual:
-			visual.rotation = _latency_buffer[-1]["rot"]
+			visual.quaternion = latest["quat"]
 		return
 
-	# Interpolate between the two snapshots surrounding render_time
-	for i in range(_latency_buffer.size() - 1):
-		var s0: Dictionary = _latency_buffer[i]
-		var s1: Dictionary = _latency_buffer[i + 1]
+	# INTERPOLATION between the two snapshots surrounding render_time
+	for i in range(_snapshots.size() - 1):
+		var s0: Dictionary = _snapshots[i]
+		var s1: Dictionary = _snapshots[i + 1]
 		if s0["time"] <= render_time and render_time <= s1["time"]:
-			var duration: float = s1["time"] - s0["time"]
-			var factor: float = 0.0 if duration <= 0.0001 else (render_time - s0["time"]) / duration
-			if s0["pos"].distance_squared_to(s1["pos"]) > 25.0:
+			var span: float = s1["time"] - s0["time"]
+			var factor: float = 0.0 if span <= 0.00001 else (render_time - s0["time"]) / span
+			factor = clampf(factor, 0.0, 1.0)
+
+			# LINEAR INTERPOLATION (Lerp) for position
+			if s0["pos"].distance_squared_to(s1["pos"]) > 225.0:
 				global_position = s1["pos"]
 			else:
 				global_position = s0["pos"].lerp(s1["pos"], factor)
 
+			# SPHERICAL LINEAR INTERPOLATION (Slerp) for rotation
 			if visual:
-				var r0: Vector3 = s0["rot"]
-				var r1: Vector3 = s1["rot"]
-				visual.rotation.y = lerp_angle(r0.y, r1.y, factor)
-				visual.rotation.x = lerp(r0.x, r1.x, factor)
-				visual.rotation.z = lerp(r0.z, r1.z, factor)
+				var q0: Quaternion = s0["quat"]
+				var q1: Quaternion = s1["quat"]
+				visual.quaternion = q0.slerp(q1, factor).normalized()
 			break
 
 func _update_animation_and_audio(is_moving: bool, just_jumped: bool) -> void:

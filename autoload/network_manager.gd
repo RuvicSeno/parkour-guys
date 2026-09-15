@@ -12,6 +12,7 @@ signal disconnected_from_server
 signal server_created
 signal player_names_updated
 signal simulated_latency_changed(ms: int)
+signal simulated_packet_loss_changed(loss_percent: float)
 
 ## Reconnection signals — UI subscribes to these to show reconnection overlay.
 signal reconnecting(attempt: int, max_attempts: int)
@@ -156,6 +157,8 @@ func _on_peer_connected(id: int) -> void:
 		_broadcast_names()
 		if simulated_latency_ms > 0:
 			_sync_simulated_latency.rpc_id(id, simulated_latency_ms)
+		if simulated_packet_loss_percent > 0.0:
+			_sync_simulated_packet_loss.rpc_id(id, simulated_packet_loss_percent)
 
 func _on_peer_disconnected(id: int) -> void:
 	print("Peer disconnected: %d" % id)
@@ -294,12 +297,18 @@ func _check_reconnection(new_peer_id: int) -> bool:
 		disconnected_players.erase(username)
 		return false
 
-# --- ARTIFICIAL LATENCY SIMULATION ---
-# Allows admins to simulate network latency for testing in runtime/release builds.
-# Presets: 0ms (off), 50ms, 150ms, 300ms.
+# --- ARTIFICIAL CONNECTION LATENCY & PACKET LOSS SIMULATION ---
+# Allows admins to simulate network conditions (ping and packet loss) for testing in runtime/release builds.
+# simulated_latency_ms represents the simulated round-trip ping in milliseconds (e.g. 150ms).
+# simulated_packet_loss_percent represents the dropped packet percentage (e.g. 10.0 for 10%).
 var simulated_latency_ms: int = 0
+var simulated_packet_loss_percent: float = 0.0
 
-## Sets the artificial latency (ms) and broadcasts it to all connected peers if called on the server.
+## Returns the simulated one-way transit delay in seconds (half-RTT ping).
+func get_simulated_one_way_latency_sec() -> float:
+	return (simulated_latency_ms / 2.0) / 1000.0
+
+## Sets the artificial ping latency (ms) and broadcasts it to all connected peers if called on the server.
 func set_simulated_latency(ms: int) -> void:
 	ms = maxi(0, ms)
 	simulated_latency_ms = ms
@@ -311,6 +320,19 @@ func set_simulated_latency(ms: int) -> void:
 func _sync_simulated_latency(ms: int) -> void:
 	simulated_latency_ms = ms
 	simulated_latency_changed.emit(ms)
+
+## Sets the artificial packet loss percentage (0.0% to 100.0%) and broadcasts it if called on the server.
+func set_simulated_packet_loss(percent: float) -> void:
+	percent = clampf(percent, 0.0, 100.0)
+	simulated_packet_loss_percent = percent
+	simulated_packet_loss_changed.emit(percent)
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		_sync_simulated_packet_loss.rpc(percent)
+
+@rpc("authority", "call_local", "reliable")
+func _sync_simulated_packet_loss(percent: float) -> void:
+	simulated_packet_loss_percent = percent
+	simulated_packet_loss_changed.emit(percent)
 
 # --- PLAYER IDENTIFIER LOOKUP ---
 ## Finds a peer ID given a string identifier.
