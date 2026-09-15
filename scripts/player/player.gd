@@ -245,7 +245,7 @@ func _set_player_color_index(val: int) -> void:
 		_setup_visuals()
 
 func _setup_visuals() -> void:
-	if not is_inside_tree() or multiplayer == null:
+	if not is_inside_tree() or multiplayer == null or not multiplayer.has_multiplayer_peer():
 		return
 
 	var auth_id: int = get_multiplayer_authority()
@@ -281,10 +281,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if emote_wheel and "is_open" in emote_wheel and emote_wheel.is_open:
 		return
 
-	# During gameplay: ESC releases cursor, click re-captures it
+	# During gameplay: ESC toggles pause menu, click re-captures it
 	if match_active:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			var pause_menu = world_node.get_node_or_null("PauseMenu") if world_node else null
+			if pause_menu and pause_menu.has_method("toggle_pause"):
+				pause_menu.toggle_pause()
+			else:
+				Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			return
 		if event is InputEventMouseButton and event.pressed:
 			if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
@@ -300,11 +304,30 @@ func _unhandled_input(event: InputEvent) -> void:
 			deg_to_rad(camera_pitch_max_deg)
 		)
 
+var is_flying: bool = false
+
+func toggle_fly() -> bool:
+	is_flying = !is_flying
+	if is_flying:
+		velocity.y = 0.0
+	return is_flying
+
 func _physics_process(delta: float) -> void:
+	if multiplayer == null or not multiplayer.has_multiplayer_peer():
+		return
 	physics_tick += 1
 
-	# Always apply gravity first so move_and_slide maintains solid floor contact
-	velocity.y -= gravity * delta
+	if is_flying:
+		# Flying mode: gravity disabled, Space flies up, Shift flies down
+		if Input.is_action_pressed("jump"):
+			velocity.y = move_speed
+		elif Input.is_key_pressed(KEY_SHIFT):
+			velocity.y = -move_speed
+		else:
+			velocity.y = 0.0
+	else:
+		# Always apply gravity first so move_and_slide maintains solid floor contact
+		velocity.y -= gravity * delta
 
 	var world_node = get_tree().current_scene
 	var chat_ui = world_node.get_node_or_null("ChatUI/Control") if world_node else null
@@ -323,7 +346,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var jumped: bool = false
-	if Input.is_action_just_pressed("jump") and is_on_floor():
+	if not is_flying and Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = jump_velocity
 		jumped = true
 		if jump_sfx:
@@ -410,6 +433,8 @@ func _on_animation_finished(anim_name: StringName) -> void:
 			stop_emote()
 
 func _process(_delta: float) -> void:
+	if multiplayer == null or not multiplayer.has_multiplayer_peer():
+		return
 	if is_multiplayer_authority():
 		return
 
@@ -576,7 +601,7 @@ func _record_state_and_report() -> void:
 	if state_history.size() > MAX_STATE_HISTORY:
 		state_history.pop_front()
 
-	if not is_multiplayer_authority():
+	if multiplayer == null or not multiplayer.has_multiplayer_peer() or not is_multiplayer_authority():
 		return
 
 	# Periodically report state checksum to server
@@ -599,11 +624,35 @@ func _report_state_hash(tick: int, client_hash: int, pos: Vector3, vel: Vector3)
 		world_node.verify_desync_report(sender_id, tick, client_hash, pos, vel)
 
 ## Server -> Client. Forces player to reconcile state if severe desync occurs or admin runs /resync.
-@rpc("authority", "call_local", "reliable")
+@rpc("any_peer", "call_local", "reliable")
 func _force_reconcile_state(new_pos: Vector3, new_vel: Vector3) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id != 0 and sender_id != 1:
+		return
 	if is_multiplayer_authority():
 		global_position = new_pos
 		velocity = new_vel
+
+## Server -> Client. Sets flight mode on the authority client for testing / fly command.
+@rpc("any_peer", "call_local", "reliable")
+func _set_flying(enabled: bool) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id != 0 and sender_id != 1:
+		return
+	if is_multiplayer_authority():
+		is_flying = enabled
+		if is_flying:
+			velocity.y = 0.0
+
+## Server -> Client. Toggles flight mode on the authority client for testing / fly command.
+@rpc("any_peer", "call_local", "reliable")
+func _toggle_flying_for_client() -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if sender_id != 0 and sender_id != 1:
+		return
+	if is_multiplayer_authority():
+		toggle_fly()
+
 
 const SPEECH_BUBBLE_SCENE: PackedScene = preload("res://scenes/ui/SpeechBubble3D.tscn")
 var active_bubbles: Array[Node3D] = []

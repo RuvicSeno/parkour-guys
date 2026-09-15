@@ -23,6 +23,9 @@ properties/3/replication_mode = 1
 properties/4/path = NodePath(".:player_color_index")
 properties/4/spawn = true
 properties/4/replication_mode = 2
+properties/5/path = NodePath(".:is_flying")
+properties/5/spawn = true
+properties/5/replication_mode = 1
 
 [node name="CharacterBody3D" type="CharacterBody3D" unique_id=10664612]
 collision_layer = 2

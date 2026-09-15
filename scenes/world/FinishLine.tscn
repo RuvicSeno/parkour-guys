@@ -22,6 +22,7 @@ size = Vector3(0.6, 4, 0.6)
 size = Vector3(10, 0.6, 0.6)
 
 [node name="FinishLine" type="Area3D" unique_id=264694717]
+collision_mask = 3
 script = ExtResource("1_fin")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=958167008]

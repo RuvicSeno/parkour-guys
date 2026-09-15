@@ -55,13 +55,23 @@ func _ready() -> void:
 	else:
 		_show_connect()
 
+var _is_connecting: bool = false
+const MAROON_COLOR: Color = Color(1.0, 0.244, 0.199, 1.0)
+
+func _reset_join_button() -> void:
+	_is_connecting = false
+	join_btn.text = "Join Game"
+	join_btn.modulate = Color(1, 1, 1, 1)
+
 func _show_connect() -> void:
 	connect_panel.show()
 	room_panel.hide()
 	connect_status_label.text = ""
+	_reset_join_button()
 	_set_connect_buttons_enabled(true)
 
 func _show_room() -> void:
+	_reset_join_button()
 	connect_panel.hide()
 	room_panel.show()
 	_update_local_action_buttons()
@@ -88,12 +98,21 @@ func _on_host_pressed() -> void:
 		_set_connect_buttons_enabled(true)
 		return
 
+	Network.current_session_scene = "lobby"
 	lobby_players.clear()
 	_server_add_player(1, Network.local_player_name)
 	_show_room()
 	_server_broadcast_state()
 
 func _on_join_pressed() -> void:
+	if _is_connecting:
+		# Player pressed Cancel while attempting to connect
+		Network.disconnect_from_game()
+		_reset_join_button()
+		_set_connect_buttons_enabled(true)
+		connect_status_label.text = "Connection cancelled."
+		return
+
 	var player_name: String = name_line_edit.text.strip_edges()
 	if player_name.is_empty():
 		player_name = "Player"
@@ -103,25 +122,38 @@ func _on_join_pressed() -> void:
 	if ip.is_empty():
 		ip = "127.0.0.1"
 
-	_set_connect_buttons_enabled(false)
+	_is_connecting = true
+	join_btn.text = "Cancel"
+	join_btn.modulate = MAROON_COLOR
+	host_btn.disabled = true
+	name_line_edit.editable = false
+	ip_line_edit.editable = false
+	join_btn.disabled = false
 	connect_status_label.text = "Connecting to %s..." % ip
 
 	var err: Error = Network.join_game(ip)
 	if err != OK:
 		connect_status_label.text = "Failed to initiate join: Error %d" % err
+		_reset_join_button()
 		_set_connect_buttons_enabled(true)
 
 func _on_connection_succeeded() -> void:
-	_show_room()
-	status_label.text = "Connected! Joining lobby..."
-	# Request server to register our lobby entry
-	_server_register_peer.rpc_id(1, Network.local_player_name)
+	_reset_join_button()
+	if Network.current_session_scene == "lobby":
+		_show_room()
+		status_label.text = "Connected! Joining lobby..."
+		# Request server to register our lobby entry
+		_server_register_peer.rpc_id(1, Network.local_player_name)
+	else:
+		status_label.text = "Game in progress! Joining match..."
 
 func _on_connection_failed() -> void:
+	_reset_join_button()
 	_show_connect()
 	connect_status_label.text = "Connection failed. Check host IP and port."
 
 func _on_disconnected_from_server() -> void:
+	_reset_join_button()
 	_show_connect()
 	connect_status_label.text = "Disconnected from host."
 
@@ -134,12 +166,32 @@ func _on_leave_pressed() -> void:
 # --- SERVER AUTHORITY METHODS ---
 
 func _server_add_player(peer_id: int, p_name: String) -> void:
+	var clean_name: String = p_name.strip_edges().left(Network.MAX_NAME_LENGTH)
+	if clean_name.is_empty():
+		clean_name = "Player %d" % peer_id
+
+	var unique_name: String = clean_name
+	var counter: int = 2
+	while _is_lobby_name_taken(unique_name, peer_id):
+		var suffix: String = str(counter)
+		var max_base_len: int = maxi(1, Network.MAX_NAME_LENGTH - suffix.length())
+		var base_trimmed: String = clean_name.left(max_base_len)
+		unique_name = base_trimmed + suffix
+		counter += 1
+
 	var available_color: int = _get_first_available_color()
 	lobby_players[peer_id] = {
-		"name": p_name,
+		"name": unique_name,
 		"color_index": available_color,
 		"is_ready": false
 	}
+	Network._register_name(peer_id, unique_name)
+
+func _is_lobby_name_taken(candidate: String, peer_id: int) -> bool:
+	for pid in lobby_players:
+		if pid != peer_id and lobby_players[pid]["name"].to_lower() == candidate.to_lower():
+			return true
+	return false
 
 func _get_first_available_color() -> int:
 	var used_colors: Array = []
@@ -275,6 +327,7 @@ func _sync_status(msg: String) -> void:
 
 @rpc("authority", "call_local", "reliable")
 func _load_game_scene(synced_colors: Dictionary) -> void:
+	Network.current_session_scene = "world"
 	Network.player_colors = synced_colors
 	get_tree().change_scene_to_file(WORLD_SCENE_PATH)
 

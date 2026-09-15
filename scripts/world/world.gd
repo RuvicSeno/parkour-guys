@@ -19,6 +19,7 @@ const DESYNC_TOLERANCE_METERS: float = 2.5
 var desync_stats: Dictionary = {}
 var chat_filter: ChatFilter = ChatFilter.new()
 var muted_peers: Array[int] = []
+var _fly_hack_timers: Dictionary = {} # peer_id (int) -> float (sustained flight time in seconds)
 
 func _ready() -> void:
 	player_spawner.spawn_function = _spawn_player
@@ -41,10 +42,6 @@ func _ready() -> void:
 		Network.player_reconnected.connect(_on_player_reconnected)
 	if Network.has_signal("player_joined_registry"):
 		Network.player_joined_registry.connect(_on_player_joined_registry)
-
-	var ready_ui = get_node_or_null("ReadyUI")
-	if ready_ui:
-		ready_ui.hide()
 
 	if Network.player_colors.size() > 0:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -100,6 +97,11 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 	# Save player state for potential reconnection BEFORE freeing the node
 	var username: String = Network.player_names.get(peer_id, "")
+	if username.is_empty():
+		username = Network.get_disconnected_player_name(peer_id)
+	if username.is_empty():
+		username = "Player %d" % peer_id
+
 	var existing: Node = players_root.get_node_or_null(str(peer_id))
 	if existing and existing is CharacterBody3D and not username.is_empty():
 		var state: Dictionary = {
@@ -115,6 +117,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	loaded_peers.erase(peer_id)
 	muted_peers.erase(peer_id)
 	desync_stats.erase(peer_id)
+	_fly_hack_timers.erase(peer_id)
 
 	if not is_world_counting_down and not game_started and Network.player_colors.size() > 0:
 		_check_all_peers_loaded()
@@ -123,8 +126,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		_update_ready_ui.rpc(ready_peers.size(), _get_total_player_count())
 		_check_all_ready()
 
-	# Notify all players about the disconnect
-	if not username.is_empty():
+	# Notify all players about the disconnect (only if not already kicked)
+	if not username.is_empty() and not username.to_lower() in Network.kicked_names:
 		_broadcast_system_message.rpc("%s disconnected." % username)
 
 func _request_spawn(peer_id: int) -> void:
@@ -410,6 +413,8 @@ func _handle_command(sender_id: int, command_text: String) -> void:
 			_cmd_desync(sender_id, parts)
 		"/resync":
 			_cmd_resync(sender_id, parts)
+		"/fly":
+			_cmd_fly(sender_id)
 		_:
 			_server_send_system_message(sender_id, "Unknown command: %s" % cmd)
 
@@ -449,7 +454,14 @@ func _cmd_ping(sender_id: int) -> void:
 		if enet_peer:
 			var packet_peer: ENetPacketPeer = enet_peer.get_peer(sender_id)
 			if packet_peer:
-				base_rtt = packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)
+				var rtt: float = packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)
+				var last_rtt: float = packet_peer.get_statistic(ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME)
+				if rtt < 350.0 and rtt > 0.0:
+					base_rtt = rtt
+				elif last_rtt < 350.0 and last_rtt > 0.0:
+					base_rtt = last_rtt
+				else:
+					base_rtt = 0.0
 				found_rtt = true
 
 	var sim_ping: int = Network.simulated_latency_ms
@@ -798,6 +810,121 @@ func _cmd_resync(sender_id: int, parts: PackedStringArray) -> void:
 		_broadcast_system_message.rpc("%s was resynchronized to server state by admin." % target_name)
 	else:
 		_server_send_system_message(sender_id, "Player node not found.")
+
+# --- /fly ---
+# Toggles flight mode.
+# Host/Admin (peer 1) can fly freely without anti-cheat kicks.
+# Non-host clients can use it for testing flight controls (Space to ascend, Shift to descend, WASD to move),
+# and after ~1.0s of sustained vertical flight defying gravity, the server anti-cheat will kick them.
+func _cmd_fly(sender_id: int) -> void:
+	var p_node = players_root.get_node_or_null(str(sender_id))
+	if not p_node or not (p_node is CharacterBody3D):
+		_server_send_system_message(sender_id, "Player node not found.")
+		return
+
+	if sender_id == 1:
+		var is_flying: bool = p_node.toggle_fly()
+		_server_send_system_message(sender_id, "Flight mode %s (Admin)." % ("enabled" if is_flying else "disabled"))
+	else:
+		if p_node.has_method("_toggle_flying_for_client"):
+			p_node._toggle_flying_for_client.rpc_id(sender_id)
+		_server_send_system_message(sender_id, "Flight mode toggled for testing. Anti-cheat will monitor sustained flight.")
+
+# =======================================================================
+# ANTI-CHEAT FLIGHT DETECTION (SERVER-SIDE)
+# Authoritative server monitoring of non-host clients.
+# Flags and kicks clients sustaining vertical flight / defying gravity for >= 1.0s.
+# =======================================================================
+
+func _physics_process(delta: float) -> void:
+	if not multiplayer.is_server() or not game_started:
+		return
+	_check_anti_cheat(delta)
+
+func _check_anti_cheat(delta: float) -> void:
+	if players_root == null:
+		return
+
+	var world_3d = get_world_3d()
+	if not world_3d:
+		return
+	var space_state = world_3d.direct_space_state
+	if not space_state:
+		return
+
+	for peer_id in multiplayer.get_peers():
+		if peer_id == 1:
+			continue # Host/Admin is immune to anti-cheat
+
+		var p_node = players_root.get_node_or_null(str(peer_id))
+		if not p_node or not is_instance_valid(p_node) or not (p_node is CharacterBody3D):
+			continue
+
+		# Check if the player is airborne
+		var pos: Vector3 = p_node.global_position
+		# Raycast downwards from slightly above feet to detect if on/near floor
+		var ray_start: Vector3 = pos + Vector3(0, 0.4, 0)
+		var ray_end: Vector3 = pos - Vector3(0, 0.7, 0)
+		var query = PhysicsRayQueryParameters3D.create(ray_start, ray_end)
+		query.collide_with_areas = false
+		query.collide_with_bodies = true
+		query.exclude = [p_node.get_rid()]
+		var ray_hit = space_state.intersect_ray(query)
+		var is_grounded: bool = not ray_hit.is_empty()
+
+		# Check flight condition:
+		# 1. Player has is_flying set to true, OR
+		# 2. Player is airborne and defying gravity:
+		#    In normal physics, velocity.y >= -0.5 can only last ~0.66s after a jump.
+		var client_flying: bool = p_node.get("is_flying") == true
+		var vel_y: float = p_node.sync_velocity.y
+		var defying_gravity: bool = not is_grounded and (client_flying or vel_y >= -0.5)
+
+		if defying_gravity:
+			var cur_time: float = _fly_hack_timers.get(peer_id, 0.0) + delta
+			_fly_hack_timers[peer_id] = cur_time
+
+			if cur_time >= 1.0:
+				_kick_for_anticheat(peer_id, "Fly Hack detected")
+		else:
+			if is_grounded:
+				_fly_hack_timers[peer_id] = 0.0
+			else:
+				var cur_time: float = _fly_hack_timers.get(peer_id, 0.0)
+				if cur_time > 0.0:
+					_fly_hack_timers[peer_id] = maxf(0.0, cur_time - delta * 2.0)
+
+func _kick_for_anticheat(peer_id: int, reason: String = "Fly Hack detected") -> void:
+	if not multiplayer.is_server() or peer_id == 1:
+		return
+
+	var player_name: String = Network.player_names.get(peer_id, "")
+	if player_name.is_empty():
+		player_name = Network.get_disconnected_player_name(peer_id)
+	if player_name.is_empty():
+		player_name = "Player %d" % peer_id
+
+	# Reset timer so we don't trigger repeatedly
+	_fly_hack_timers.erase(peer_id)
+
+	# Prevent reconnecting with saved state & blacklist
+	Network.disconnected_players.erase(player_name)
+	if not player_name.to_lower() in Network.kicked_names:
+		Network.kicked_names.append(player_name.to_lower())
+
+	# 1. Notify client with reason
+	Network._notify_kicked.rpc_id(peer_id, "Kicked due to Anti-Cheat (%s)" % reason)
+
+	# 2. Private message to client
+	_server_send_system_message(peer_id, "You were kicked due to anti-cheat (%s)." % reason)
+
+	# 3. Public announcement to chat
+	_broadcast_system_message.rpc("%s was kicked due to anti-cheat." % player_name)
+
+	# 4. Brief delay before disconnecting peer so RPC arrives
+	await get_tree().create_timer(0.1).timeout
+	if multiplayer.multiplayer_peer and peer_id in multiplayer.get_peers():
+		multiplayer.multiplayer_peer.disconnect_peer(peer_id)
 
 # =======================================================================
 # DESYNC DETECTION VERIFICATION (SERVER-SIDE)

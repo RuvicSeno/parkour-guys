@@ -84,16 +84,82 @@ var _reconnect_attempts: int = 0
 var _last_server_ip: String = ""
 var _last_server_port: int = DEFAULT_PORT
 var was_kicked: bool = false
+var kick_reason: String = ""
 var kicked_names: Array[String] = []
 
-func set_kicked() -> void:
+func set_kicked(reason: String = "") -> void:
 	was_kicked = true
 	_reconnecting = false
 	_last_server_ip = ""
+	kick_reason = reason if not reason.is_empty() else "You were kicked by an admin."
 
 @rpc("authority", "reliable")
-func _notify_kicked() -> void:
-	set_kicked()
+func _notify_kicked(reason: String = "") -> void:
+	set_kicked(reason)
+
+## Tracks active session scene ("lobby" vs "world") authoritatively on server.
+var current_session_scene: String = "lobby"
+
+## Server -> Client. Syncs the active session scene ("lobby" or "world") to connecting/reconnecting clients.
+@rpc("authority", "call_local", "reliable")
+func _sync_session_scene(scene_type: String, colors: Dictionary) -> void:
+	current_session_scene = scene_type
+	if not colors.is_empty():
+		player_colors = colors
+
+	if scene_type == "world":
+		var cur_scene = get_tree().current_scene
+		if cur_scene == null or not cur_scene.name == "World":
+			get_tree().change_scene_to_file("res://scenes/world/World.tscn")
+	elif scene_type == "lobby":
+		var cur_scene = get_tree().current_scene
+		if cur_scene == null or not cur_scene.name == "Lobby":
+			get_tree().change_scene_to_file("res://scenes/lobby/Lobby.tscn")
+
+## Called by pause_menu.gd when the host chooses to return to lobby.
+## Notifies all connected clients to return to lobby before closing the server.
+func host_return_to_lobby() -> void:
+	if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+		# Send RPC to remote clients only
+		_notify_client_return_to_lobby.rpc()
+		# Use timer on the persistent Network autoload so packets are flushed over UDP
+		await get_tree().create_timer(0.15).timeout
+	current_session_scene = "lobby"
+	disconnect_from_game()
+	get_tree().change_scene_to_file("res://scenes/lobby/Lobby.tscn")
+
+## Server -> Remote Clients. Tells clients that the match ended and host returned to lobby.
+@rpc("authority", "reliable")
+func _notify_client_return_to_lobby() -> void:
+	print("Host returned to lobby. Returning to lobby...")
+	_reconnecting = false
+	_last_server_ip = ""
+	current_session_scene = "lobby"
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	disconnect_from_game()
+	get_tree().change_scene_to_file("res://scenes/lobby/Lobby.tscn")
+
+# --- LIVE PING-PONG PROBE SYSTEM ---
+var current_real_ping: int = 0
+var _last_ping_send_time: int = 0
+
+## Sends an immediate lightweight UDP ping probe to server (peer 1).
+func send_ping_probe() -> void:
+	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
+		_last_ping_send_time = Time.get_ticks_msec()
+		_ping_server_req.rpc_id(1, _last_ping_send_time)
+
+@rpc("any_peer", "unreliable")
+func _ping_server_req(client_send_time: int) -> void:
+	if not multiplayer.is_server():
+		return
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	_pong_client_resp.rpc_id(sender_id, client_send_time)
+
+@rpc("authority", "unreliable")
+func _pong_client_resp(client_send_time: int) -> void:
+	var now: int = Time.get_ticks_msec()
+	current_real_ping = maxi(0, now - client_send_time)
 
 ## Server-only. Stores state for recently disconnected players so they can
 ## be restored on reconnection. Keyed by username (String).
@@ -145,8 +211,12 @@ func join_game(ip_address: String, port: int = DEFAULT_PORT) -> Error:
 func disconnect_from_game() -> void:
 	_reconnecting = false
 	_reconnect_attempts = 0
+	was_kicked = false
+	kick_reason = ""
 	player_colors.clear()
-	multiplayer.multiplayer_peer = null
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer.close()
+		multiplayer.multiplayer_peer = null
 
 func _on_peer_connected(id: int) -> void:
 	print("Peer connected: %d" % id)
@@ -160,8 +230,15 @@ func _on_peer_connected(id: int) -> void:
 		if simulated_packet_loss_percent > 0.0:
 			_sync_simulated_packet_loss.rpc_id(id, simulated_packet_loss_percent)
 
+var last_disconnected_names: Dictionary = {}
+
+func get_disconnected_player_name(id: int) -> String:
+	return last_disconnected_names.get(id, "")
+
 func _on_peer_disconnected(id: int) -> void:
 	print("Peer disconnected: %d" % id)
+	var p_name: String = player_names.get(id, "Player %d" % id)
+	last_disconnected_names[id] = p_name
 	player_disconnected.emit(id)
 	player_colors.erase(id)
 	if multiplayer.is_server() and player_names.has(id):
@@ -174,6 +251,7 @@ func _on_connected_to_server() -> void:
 	_reconnecting = false
 	_reconnect_attempts = 0
 	_request_set_name.rpc_id(1, local_player_name)
+	send_ping_probe()
 	connection_succeeded.emit()
 
 func _on_connection_failed() -> void:
@@ -192,6 +270,8 @@ func _on_server_disconnected() -> void:
 		was_kicked = false
 		_reconnecting = false
 		_last_server_ip = ""
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		get_tree().change_scene_to_file("res://scenes/ui/KickedScreen.tscn")
 		disconnected_from_server.emit()
 		return
 
@@ -237,9 +317,9 @@ func _request_set_name(desired_name: String) -> void:
 	var clean_name: String = desired_name.strip_edges().left(MAX_NAME_LENGTH)
 	if clean_name.to_lower() in kicked_names:
 		print("Rejecting kicked player connection request from %s (peer %d)" % [clean_name, sender_id])
-		_notify_kicked.rpc_id(sender_id)
+		_notify_kicked.rpc_id(sender_id, "You are kicked from this session.")
 		get_tree().create_timer(0.1).timeout.connect(func():
-			if multiplayer.multiplayer_peer != null and multiplayer.multiplayer_peer.has_peer(sender_id):
+			if multiplayer.multiplayer_peer != null and sender_id in multiplayer.get_peers():
 				multiplayer.multiplayer_peer.disconnect_peer(sender_id)
 		)
 		return
@@ -247,17 +327,40 @@ func _request_set_name(desired_name: String) -> void:
 	_register_name(sender_id, desired_name)
 	_broadcast_names()
 
+	# Sync current session scene so the client is in the same scene as the server
+	if sender_id != 1:
+		_sync_session_scene.rpc_id(sender_id, current_session_scene, player_colors)
+
 	var is_reconnect: bool = _check_reconnection(sender_id)
 	if not is_reconnect and sender_id != 1:
 		var registered_name: String = player_names.get(sender_id, "Player %d" % sender_id)
 		player_joined_registry.emit(sender_id, registered_name)
 
-## Runs on the server only. Validates and stores a single name entry.
+## Runs on the server only. Validates and stores a single name entry,
+## disambiguating duplicates by appending numbers (e.g. "Player" -> "Player2").
 func _register_name(peer_id: int, desired_name: String) -> void:
 	var clean_name: String = desired_name.strip_edges().left(MAX_NAME_LENGTH)
 	if clean_name.is_empty():
 		clean_name = "Player %d" % peer_id
-	player_names[peer_id] = clean_name
+
+	var unique_name: String = clean_name
+	var counter: int = 2
+	while _is_name_taken_by_other(unique_name, peer_id):
+		var suffix: String = str(counter)
+		var max_base_len: int = maxi(1, MAX_NAME_LENGTH - suffix.length())
+		var base_trimmed: String = clean_name.left(max_base_len)
+		unique_name = base_trimmed + suffix
+		counter += 1
+
+	player_names[peer_id] = unique_name
+	if multiplayer != null and multiplayer.has_multiplayer_peer() and peer_id == multiplayer.get_unique_id():
+		local_player_name = unique_name
+
+func _is_name_taken_by_other(candidate: String, peer_id: int) -> bool:
+	for pid in player_names:
+		if pid != peer_id and player_names[pid].to_lower() == candidate.to_lower():
+			return true
+	return false
 
 ## Server -> All (including itself via call_local). Sends the full current
 ## name map. Full-map broadcast (rather than deltas) keeps late-join and
@@ -265,6 +368,10 @@ func _register_name(peer_id: int, desired_name: String) -> void:
 @rpc("authority", "call_local", "reliable")
 func _sync_player_names(names: Dictionary) -> void:
 	player_names = names
+	if multiplayer != null and multiplayer.has_multiplayer_peer():
+		var my_id: int = multiplayer.get_unique_id()
+		if player_names.has(my_id):
+			local_player_name = player_names[my_id]
 	player_names_updated.emit()
 
 func _broadcast_names() -> void:
