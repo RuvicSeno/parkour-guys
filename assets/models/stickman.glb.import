@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://ckekiepuke11k"
-path="res://.godot/imported/free_pack_-_stick_man_rigged.glb-d3f3d32238e03d0679409d79bab99b4f.scn"
+path="res://.godot/imported/stickman.glb-06b531bc51032c927c1af46a1c29d23c.scn"
 
 [deps]
 
-source_file="res://assets/models/free_pack_-_stick_man_rigged.glb"
-dest_files=["res://.godot/imported/free_pack_-_stick_man_rigged.glb-d3f3d32238e03d0679409d79bab99b4f.scn"]
+source_file="res://assets/models/stickman.glb"
+dest_files=["res://.godot/imported/stickman.glb-06b531bc51032c927c1af46a1c29d23c.scn"]
 
 [params]
 
