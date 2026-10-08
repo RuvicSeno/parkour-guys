@@ -51,6 +51,9 @@ var _pending_sync_update: bool = false
 # Packets are randomly dropped according to Network.simulated_packet_loss_percent (e.g. 10%).
 var _transit_queue: Array[Dictionary] = []
 
+# Unpredicted input queue for simulating standard server-authoritative input delay (when prediction is OFF)
+var _unpredicted_input_queue: Array[Dictionary] = []
+
 # Ordered snapshot history buffer for interpolation:
 # Each snapshot: { "time": float, "pos": Vector3, "vel": Vector3, "quat": Quaternion, "anim": String }
 var _snapshots: Array[Dictionary] = []
@@ -281,6 +284,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if emote_wheel and "is_open" in emote_wheel and emote_wheel.is_open:
 		return
 
+	# F1 toggles Client Prediction Mode for testing and performance comparison
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F1:
+		Network.set_client_prediction(!Network.client_prediction_enabled)
+		return
+
 	# During gameplay: ESC toggles pause menu, click re-captures it
 	if match_active:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
@@ -345,16 +353,44 @@ func _physics_process(delta: float) -> void:
 		_record_state_and_report()
 		return
 
+	var raw_input_dir: Vector2 = Input.get_vector(
+		"move_left", "move_right", "move_forward", "move_back"
+	)
+	var raw_jump: bool = not is_flying and Input.is_action_just_pressed("jump")
+
+	var input_dir: Vector2 = raw_input_dir
+	var jump_action: bool = raw_jump
+
+	# LAB 7: Toggleable Client Prediction Mode
+	# When OFF: Simulates standard server-authoritative round-trip input delay (200ms default test baseline)
+	# When ON: Movement executes immediately on client frame 0
+	if not Network.client_prediction_enabled:
+		var now: float = Time.get_ticks_usec() / 1000000.0
+		var rtt_delay: float = (Network.simulated_latency_ms / 1000.0) if Network.simulated_latency_ms > 0 else 0.20
+		_unpredicted_input_queue.append({
+			"apply_time": now + rtt_delay,
+			"input_dir": raw_input_dir,
+			"jump": raw_jump
+		})
+
+		input_dir = Vector2.ZERO
+		jump_action = false
+
+		while not _unpredicted_input_queue.is_empty() and _unpredicted_input_queue[0]["apply_time"] <= now:
+			var matured = _unpredicted_input_queue.pop_front()
+			input_dir = matured["input_dir"]
+			jump_action = jump_action or matured["jump"]
+	else:
+		if not _unpredicted_input_queue.is_empty():
+			_unpredicted_input_queue.clear()
+
 	var jumped: bool = false
-	if not is_flying and Input.is_action_just_pressed("jump") and is_on_floor():
+	if jump_action and is_on_floor():
 		velocity.y = jump_velocity
 		jumped = true
 		if jump_sfx:
 			jump_sfx.play()
 
-	var input_dir: Vector2 = Input.get_vector(
-		"move_left", "move_right", "move_forward", "move_back"
-	)
 	var has_movement_input: bool = input_dir.length_squared() > 0.0
 
 	# Emote cancellation / movement handling
@@ -456,6 +492,29 @@ func _process(_delta: float) -> void:
 			visual.quaternion = Quaternion.from_euler(sync_rotation)
 		return
 
+	# If interpolation is disabled: bypass jitter buffer delay and snapshot lerping
+	if not Network.interpolation_enabled:
+		var latest: Dictionary = _snapshots[-1]
+		var dt: float = maxf(0.0, now - latest["time"])
+		if Network.extrapolation_enabled and dt > 0.0:
+			if dt <= MAX_EXTRAPOLATION_TIME:
+				var effective_dt: float = dt
+				if dt > 0.15:
+					var t_decay: float = (dt - 0.15) / (MAX_EXTRAPOLATION_TIME - 0.15)
+					var decel: float = 1.0 - (t_decay * t_decay)
+					effective_dt = 0.15 + (dt - 0.15) * decel
+				global_position = latest["pos"] + latest["vel"] * effective_dt
+			else:
+				global_position = latest["pos"] + latest["vel"] * (0.15 + (MAX_EXTRAPOLATION_TIME - 0.15) * 0.5)
+		else:
+			global_position = latest["pos"]
+		if visual:
+			visual.quaternion = latest["quat"]
+
+		while _snapshots.size() > 2 and _snapshots[1]["time"] < (now - 0.2):
+			_snapshots.pop_front()
+		return
+
 	# Adaptive jitter buffer delay:
 	# Accommodates packet gaps during 10% packet loss and 150ms ping
 	var interp_delay: float = BASE_INTERPOLATION_DELAY
@@ -484,19 +543,23 @@ func _process(_delta: float) -> void:
 	# Check if render_time has surpassed latest snapshot (due to 10% packet loss or ping spike!)
 	var latest: Dictionary = _snapshots[-1]
 	if render_time > latest["time"]:
-		var dt: float = render_time - latest["time"]
-		if dt <= MAX_EXTRAPOLATION_TIME:
-			# DEAD RECKONING: Glide smoothly along last known velocity
-			var effective_dt: float = dt
-			if dt > 0.15:
-				# Smooth deceleration towards 300ms to avoid ghosting through walls
-				var t_decay: float = (dt - 0.15) / (MAX_EXTRAPOLATION_TIME - 0.15)
-				var decel: float = 1.0 - (t_decay * t_decay)
-				effective_dt = 0.15 + (dt - 0.15) * decel
-			global_position = latest["pos"] + latest["vel"] * effective_dt
+		if Network.extrapolation_enabled:
+			var dt: float = render_time - latest["time"]
+			if dt <= MAX_EXTRAPOLATION_TIME:
+				# DEAD RECKONING: Glide smoothly along last known velocity
+				var effective_dt: float = dt
+				if dt > 0.15:
+					# Smooth deceleration towards 300ms to avoid ghosting through walls
+					var t_decay: float = (dt - 0.15) / (MAX_EXTRAPOLATION_TIME - 0.15)
+					var decel: float = 1.0 - (t_decay * t_decay)
+					effective_dt = 0.15 + (dt - 0.15) * decel
+				global_position = latest["pos"] + latest["vel"] * effective_dt
+			else:
+				# Halted after max extrapolation window to prevent wall clipping
+				global_position = latest["pos"] + latest["vel"] * (0.15 + (MAX_EXTRAPOLATION_TIME - 0.15) * 0.5)
 		else:
-			# Halted after max extrapolation window to prevent wall clipping
-			global_position = latest["pos"] + latest["vel"] * (0.15 + (MAX_EXTRAPOLATION_TIME - 0.15) * 0.5)
+			# Extrapolation disabled: freeze at the last known received position
+			global_position = latest["pos"]
 		if visual:
 			visual.quaternion = latest["quat"]
 		return

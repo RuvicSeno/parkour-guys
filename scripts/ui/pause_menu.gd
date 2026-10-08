@@ -2,6 +2,8 @@ extends CanvasLayer
 
 @onready var panel: Control = $Control
 @onready var resume_btn: Button = $Control/PanelContainer/MarginContainer/VBoxContainer/ResumeButton
+@onready var interp_check: CheckBox = $Control/PanelContainer/MarginContainer/VBoxContainer/NetOptionsBox/InterpCheck
+@onready var extrap_check: CheckBox = $Control/PanelContainer/MarginContainer/VBoxContainer/NetOptionsBox/ExtrapCheck
 @onready var menu_btn: Button = $Control/PanelContainer/MarginContainer/VBoxContainer/MenuButton
 @onready var quit_btn: Button = $Control/PanelContainer/MarginContainer/VBoxContainer/QuitButton
 
@@ -15,6 +17,26 @@ func _ready() -> void:
 	menu_btn.pressed.connect(_on_menu_pressed)
 	quit_btn.pressed.connect(_on_quit_pressed)
 
+	interp_check.button_pressed = Network.interpolation_enabled
+	extrap_check.button_pressed = Network.extrapolation_enabled
+	interp_check.toggled.connect(_on_interp_toggled)
+	extrap_check.toggled.connect(_on_extrap_toggled)
+
+	Network.interpolation_changed.connect(func(enabled: bool):
+		if interp_check and interp_check.button_pressed != enabled:
+			interp_check.button_pressed = enabled
+	)
+	Network.extrapolation_changed.connect(func(enabled: bool):
+		if extrap_check and extrap_check.button_pressed != enabled:
+			extrap_check.button_pressed = enabled
+	)
+
+func _on_interp_toggled(toggled_on: bool) -> void:
+	Network.set_interpolation(toggled_on)
+
+func _on_extrap_toggled(toggled_on: bool) -> void:
+	Network.set_extrapolation(toggled_on)
+
 func toggle_pause() -> void:
 	if is_paused:
 		resume_game()
@@ -23,6 +45,8 @@ func toggle_pause() -> void:
 
 func pause_game() -> void:
 	is_paused = true
+	interp_check.button_pressed = Network.interpolation_enabled
+	extrap_check.button_pressed = Network.extrapolation_enabled
 	panel.show()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 

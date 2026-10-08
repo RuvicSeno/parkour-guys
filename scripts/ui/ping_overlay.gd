@@ -24,6 +24,11 @@ func _ready() -> void:
 
 	if multiplayer.has_multiplayer_peer() and not multiplayer.is_server():
 		Network.send_ping_probe()
+
+	Network.interpolation_changed.connect(func(_val): _update_ping())
+	Network.extrapolation_changed.connect(func(_val): _update_ping())
+	Network.client_prediction_changed.connect(func(_val): _update_ping())
+
 	_update_ping()
 
 func _process(delta: float) -> void:
@@ -36,7 +41,20 @@ func _process(delta: float) -> void:
 
 func _update_ping() -> void:
 	var ping_val: int = _get_current_ping()
-	ping_label.text = "Ping: %d ms" % ping_val
+	var text: String = "Ping: %d ms" % ping_val
+
+	var tags: Array[String] = []
+	if not Network.client_prediction_enabled:
+		tags.append("Prediction: OFF")
+	if not Network.interpolation_enabled:
+		tags.append("Interp: OFF")
+	if not Network.extrapolation_enabled:
+		tags.append("Extrap: OFF")
+
+	if not tags.is_empty():
+		text += " [%s]" % " | ".join(tags)
+
+	ping_label.text = text
 
 	if ping_val < 80:
 		ping_label.add_theme_color_override("font_color", COLOR_LOW_PING)

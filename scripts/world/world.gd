@@ -409,6 +409,14 @@ func _handle_command(sender_id: int, command_text: String) -> void:
 			_cmd_packet_loss(sender_id, parts)
 		"/netpreset", "/preset":
 			_cmd_netpreset(sender_id, parts)
+		"/interp", "/interpolation", "/interpolate":
+			_cmd_interp(sender_id, parts)
+		"/extrap", "/extrapolation", "/extrapolate", "/deadreckoning":
+			_cmd_extrap(sender_id, parts)
+		"/netstatus", "/netsettings":
+			_cmd_netsettings(sender_id)
+		"/prediction", "/predict", "/clientprediction":
+			_cmd_prediction(sender_id, parts)
 		"/desync", "/syncstatus", "/checksync":
 			_cmd_desync(sender_id, parts)
 		"/resync":
@@ -707,14 +715,14 @@ func _cmd_packet_loss(sender_id: int, parts: PackedStringArray) -> void:
 	Network.set_simulated_packet_loss(loss_pct)
 	_broadcast_system_message.rpc("Admin set simulated packet loss to %.1f%%." % loss_pct)
 
-# --- /netpreset <laggy|spikes|clean|off> ---
+# --- /netpreset <laggy|spikes|clean|raw|off> ---
 # Admin only. Quick presets for testing network conditions.
 func _cmd_netpreset(sender_id: int, parts: PackedStringArray) -> void:
 	if not _require_admin(sender_id):
 		return
 
 	if parts.size() < 2:
-		_server_send_system_message(sender_id, "Usage: /netpreset <laggy | spikes | clean | off>\n  laggy: 150ms ping, 10% packet loss\n  spikes: 250ms ping, 15% packet loss\n  clean / off: 0ms ping, 0% packet loss")
+		_server_send_system_message(sender_id, "Usage: /netpreset <laggy | spikes | raw | clean | off>\n  laggy: 150ms ping, 10% packet loss\n  spikes: 250ms ping, 15% packet loss\n  raw: 150ms ping, 10% loss, interp OFF, extrap OFF\n  clean / off: 0ms ping, 0% packet loss, interp ON, extrap ON")
 		return
 
 	var preset: String = parts[1].to_lower().strip_edges()
@@ -727,12 +735,117 @@ func _cmd_netpreset(sender_id: int, parts: PackedStringArray) -> void:
 			Network.set_simulated_latency(250)
 			Network.set_simulated_packet_loss(15.0)
 			_broadcast_system_message.rpc("Admin applied network preset 'spikes': 250 ms ping, 15.0% packet loss.")
-		"clean", "off", "reset":
+		"raw", "no_smoothing":
+			Network.set_simulated_latency(150)
+			Network.set_simulated_packet_loss(10.0)
+			Network.set_interpolation(false)
+			Network.set_extrapolation(false)
+			_broadcast_system_message.rpc("Admin applied network preset 'raw': 150 ms ping, 10% loss, interpolation OFF, extrapolation OFF.")
+		"clean", "off", "reset", "default":
 			Network.set_simulated_latency(0)
 			Network.set_simulated_packet_loss(0.0)
-			_broadcast_system_message.rpc("Admin reset network simulation to clean: 0 ms ping, 0.0% packet loss.")
+			Network.set_interpolation(true)
+			Network.set_extrapolation(true)
+			Network.set_client_prediction(true)
+			_broadcast_system_message.rpc("Admin reset network simulation to default: 0 ms ping, 0.0% loss, prediction ON, interp ON, extrap ON.")
+		"delayed", "unpredicted", "lab7":
+			Network.set_simulated_latency(200)
+			Network.set_client_prediction(false)
+			_broadcast_system_message.rpc("Admin applied network preset 'delayed': 200 ms RTT ping, Client Prediction OFF (Standard Server-Authoritative Input Lag).")
 		_:
-			_server_send_system_message(sender_id, "Unknown preset '%s'. Available: laggy, spikes, clean, off" % preset)
+			_server_send_system_message(sender_id, "Unknown preset '%s'. Available: laggy, spikes, raw, delayed, clean, off" % preset)
+
+# --- /prediction <on|off|toggle> ---
+# Toggles Client-Side Movement Prediction (Lab 7 Deliverable). ON by default.
+func _cmd_prediction(sender_id: int, parts: PackedStringArray) -> void:
+	if parts.size() < 2:
+		_server_send_system_message(sender_id, "Client Prediction Mode is currently %s. Usage: /prediction <on|off|toggle>" % ("ON (Instant Feedback)" if Network.client_prediction_enabled else "OFF (Server Echo Lag)"))
+		return
+
+	var arg: String = parts[1].to_lower().strip_edges()
+	var new_val: bool
+	match arg:
+		"on", "true", "1", "enable", "enabled":
+			new_val = true
+		"off", "false", "0", "disable", "disabled":
+			new_val = false
+		"toggle":
+			new_val = !Network.client_prediction_enabled
+		_:
+			_server_send_system_message(sender_id, "Invalid argument '%s'. Usage: /prediction <on|off|toggle>" % arg)
+			return
+
+	if Network.is_admin(sender_id):
+		Network.set_client_prediction(new_val)
+		_broadcast_system_message.rpc("Admin set Client Prediction Mode: %s." % ("ON (Instant Response)" if new_val else "OFF (Server-Authoritative Lag)"))
+	else:
+		Network._sync_client_prediction.rpc_id(sender_id, new_val)
+		_server_send_system_message(sender_id, "Client Prediction Mode set to %s for your client." % ("ON (Instant Response)" if new_val else "OFF (Server-Authoritative Lag)"))
+
+# --- /interp <on|off|toggle> ---
+# Toggles remote player snapshot interpolation. ON by default.
+func _cmd_interp(sender_id: int, parts: PackedStringArray) -> void:
+	if parts.size() < 2:
+		_server_send_system_message(sender_id, "Network interpolation is currently %s. Usage: /interp <on|off|toggle>" % ("ON" if Network.interpolation_enabled else "OFF"))
+		return
+
+	var arg: String = parts[1].to_lower().strip_edges()
+	var new_val: bool
+	match arg:
+		"on", "true", "1", "enable", "enabled":
+			new_val = true
+		"off", "false", "0", "disable", "disabled":
+			new_val = false
+		"toggle":
+			new_val = !Network.interpolation_enabled
+		_:
+			_server_send_system_message(sender_id, "Invalid argument '%s'. Usage: /interp <on|off|toggle>" % arg)
+			return
+
+	if Network.is_admin(sender_id):
+		Network.set_interpolation(new_val)
+		_broadcast_system_message.rpc("Admin set network interpolation: %s." % ("ON" if new_val else "OFF"))
+	else:
+		Network._sync_interpolation.rpc_id(sender_id, new_val)
+		_server_send_system_message(sender_id, "Network interpolation set to %s for your client." % ("ON" if new_val else "OFF"))
+
+# --- /extrap <on|off|toggle> ---
+# Toggles remote player velocity dead reckoning (extrapolation). ON by default.
+func _cmd_extrap(sender_id: int, parts: PackedStringArray) -> void:
+	if parts.size() < 2:
+		_server_send_system_message(sender_id, "Network extrapolation (dead reckoning) is currently %s. Usage: /extrap <on|off|toggle>" % ("ON" if Network.extrapolation_enabled else "OFF"))
+		return
+
+	var arg: String = parts[1].to_lower().strip_edges()
+	var new_val: bool
+	match arg:
+		"on", "true", "1", "enable", "enabled":
+			new_val = true
+		"off", "false", "0", "disable", "disabled":
+			new_val = false
+		"toggle":
+			new_val = !Network.extrapolation_enabled
+		_:
+			_server_send_system_message(sender_id, "Invalid argument '%s'. Usage: /extrap <on|off|toggle>" % arg)
+			return
+
+	if Network.is_admin(sender_id):
+		Network.set_extrapolation(new_val)
+		_broadcast_system_message.rpc("Admin set network extrapolation (dead reckoning): %s." % ("ON" if new_val else "OFF"))
+	else:
+		Network._sync_extrapolation.rpc_id(sender_id, new_val)
+		_server_send_system_message(sender_id, "Network extrapolation set to %s for your client." % ("ON" if new_val else "OFF"))
+
+# --- /netstatus / /netsettings ---
+# Displays current network simulation latency, packet loss, and interpolation/extrapolation status.
+func _cmd_netsettings(sender_id: int) -> void:
+	var msg: String = "=== NETWORK SIMULATION & SETTINGS ===\n"
+	msg += "Ping Delay: %d ms\n" % Network.simulated_latency_ms
+	msg += "Packet Loss: %.1f%%\n" % Network.simulated_packet_loss_percent
+	msg += "Client Prediction: %s\n" % ("ON (Instant Response)" if Network.client_prediction_enabled else "OFF (Server Echo Lag)")
+	msg += "Interpolation: %s\n" % ("ON" if Network.interpolation_enabled else "OFF")
+	msg += "Extrapolation (Dead Reckoning): %s" % ("ON" if Network.extrapolation_enabled else "OFF")
+	_server_send_system_message(sender_id, msg)
 
 # --- /desync [player_name|id] ---
 # Admin only. Displays desync detection statistics for all players or a specific player.

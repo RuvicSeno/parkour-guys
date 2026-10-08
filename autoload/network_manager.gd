@@ -13,6 +13,9 @@ signal server_created
 signal player_names_updated
 signal simulated_latency_changed(ms: int)
 signal simulated_packet_loss_changed(loss_percent: float)
+signal interpolation_changed(enabled: bool)
+signal extrapolation_changed(enabled: bool)
+signal client_prediction_changed(enabled: bool)
 
 ## Reconnection signals — UI subscribes to these to show reconnection overlay.
 signal reconnecting(attempt: int, max_attempts: int)
@@ -229,6 +232,12 @@ func _on_peer_connected(id: int) -> void:
 			_sync_simulated_latency.rpc_id(id, simulated_latency_ms)
 		if simulated_packet_loss_percent > 0.0:
 			_sync_simulated_packet_loss.rpc_id(id, simulated_packet_loss_percent)
+		if not interpolation_enabled:
+			_sync_interpolation.rpc_id(id, interpolation_enabled)
+		if not extrapolation_enabled:
+			_sync_extrapolation.rpc_id(id, extrapolation_enabled)
+		if not client_prediction_enabled:
+			_sync_client_prediction.rpc_id(id, client_prediction_enabled)
 
 var last_disconnected_names: Dictionary = {}
 
@@ -440,6 +449,59 @@ func set_simulated_packet_loss(percent: float) -> void:
 func _sync_simulated_packet_loss(percent: float) -> void:
 	simulated_packet_loss_percent = percent
 	simulated_packet_loss_changed.emit(percent)
+
+# --- INTERPOLATION & EXTRAPOLATION TOGGLES (FOR TESTING) ---
+# interpolation_enabled: Smooths movement across historical snapshots. Default is ON.
+# extrapolation_enabled: Dead reckons forward along velocity during packet drops. Default is ON.
+var interpolation_enabled: bool = true
+var extrapolation_enabled: bool = true
+
+## Sets whether client-side interpolation between snapshots is enabled (default: true).
+func set_interpolation(enabled: bool) -> void:
+	if interpolation_enabled == enabled:
+		return
+	interpolation_enabled = enabled
+	interpolation_changed.emit(enabled)
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		_sync_interpolation.rpc(enabled)
+
+@rpc("authority", "call_local", "reliable")
+func _sync_interpolation(enabled: bool) -> void:
+	interpolation_enabled = enabled
+	interpolation_changed.emit(enabled)
+
+## Sets whether remote dead reckoning / velocity extrapolation is enabled (default: true).
+func set_extrapolation(enabled: bool) -> void:
+	if extrapolation_enabled == enabled:
+		return
+	extrapolation_enabled = enabled
+	extrapolation_changed.emit(enabled)
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		_sync_extrapolation.rpc(enabled)
+
+@rpc("authority", "call_local", "reliable")
+func _sync_extrapolation(enabled: bool) -> void:
+	extrapolation_enabled = enabled
+	extrapolation_changed.emit(enabled)
+
+# --- CLIENT-SIDE PREDICTION TOGGLE (LAB 7) ---
+# client_prediction_enabled: When true, movement inputs apply immediately on client frame 0.
+# When false, simulates standard server-authoritative delay (waiting for server round-trip echo).
+var client_prediction_enabled: bool = true
+
+## Sets whether client-side movement prediction is enabled (default: true).
+func set_client_prediction(enabled: bool) -> void:
+	if client_prediction_enabled == enabled:
+		return
+	client_prediction_enabled = enabled
+	client_prediction_changed.emit(enabled)
+	if multiplayer.multiplayer_peer != null and multiplayer.is_server():
+		_sync_client_prediction.rpc(enabled)
+
+@rpc("authority", "call_local", "reliable")
+func _sync_client_prediction(enabled: bool) -> void:
+	client_prediction_enabled = enabled
+	client_prediction_changed.emit(enabled)
 
 # --- PLAYER IDENTIFIER LOOKUP ---
 ## Finds a peer ID given a string identifier.
